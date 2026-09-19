@@ -2,7 +2,7 @@ class_name SaveSystem
 extends RefCounted
 
 const SAVE_PATH := "user://chrono_exponent_save.json"
-const CURRENT_SAVE_VERSION := 3
+const CURRENT_SAVE_VERSION := 4
 
 static func save_game(state: GameState) -> bool:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -54,6 +54,8 @@ static func migrate_data(source: Dictionary) -> Dictionary:
 				data = _migrate_v1_to_v2(data)
 			2:
 				data = _migrate_v2_to_v3(data)
+			3:
+				data = _migrate_v3_to_v4(data)
 			_:
 				return {}
 
@@ -80,6 +82,22 @@ static func _migrate_v2_to_v3(data: Dictionary) -> Dictionary:
 	migrated["save_version"] = 3
 	return migrated
 
+static func _migrate_v3_to_v4(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+
+	var current_wave := max(1, int(migrated.get("wave", 1)))
+	migrated["run_time"] = 0.0
+	migrated["run_start_wave"] = current_wave
+	migrated["run_highest_wave"] = current_wave
+	migrated["run_damage"] = 0.0
+	migrated["run_energy_earned"] = 0.0
+	migrated["run_kills"] = 0
+	migrated["run_crits"] = 0
+	migrated["run_bosses"] = 0
+	migrated["last_fracture_summary"] = {}
+	migrated["save_version"] = 4
+	return migrated
+
 static func _normalize_current(data: Dictionary) -> void:
 	data["save_version"] = CURRENT_SAVE_VERSION
 
@@ -102,3 +120,24 @@ static func _normalize_current(data: Dictionary) -> void:
 	data["energy"] = max(0.0, float(data.get("energy", 0.0)))
 	data["fragments"] = max(0.0, float(data.get("fragments", 0.0)))
 	data["weapon_level"] = max(0, int(data.get("weapon_level", 0)))
+
+	data["run_time"] = max(0.0, float(data.get("run_time", 0.0)))
+	data["run_start_wave"] = max(
+		1,
+		int(data.get("run_start_wave", data["wave"]))
+	)
+	data["run_highest_wave"] = max(
+		int(data["run_start_wave"]),
+		int(data.get("run_highest_wave", data["wave"]))
+	)
+	data["run_damage"] = max(0.0, float(data.get("run_damage", 0.0)))
+	data["run_energy_earned"] = max(
+		0.0,
+		float(data.get("run_energy_earned", 0.0))
+	)
+	data["run_kills"] = max(0, int(data.get("run_kills", 0)))
+	data["run_crits"] = max(0, int(data.get("run_crits", 0)))
+	data["run_bosses"] = max(0, int(data.get("run_bosses", 0)))
+
+	if typeof(data.get("last_fracture_summary", {})) != TYPE_DICTIONARY:
+		data["last_fracture_summary"] = {}
