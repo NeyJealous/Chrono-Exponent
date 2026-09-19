@@ -12,6 +12,11 @@ var weapon_button: Button
 var unit_buttons: Array[Button] = []
 var purchase_mode_buttons: Array[Button] = []
 var fracture_button: Button
+var tree_button: Button
+
+var fracture_tree_overlay: ColorRect
+var fracture_tree_fragments_label: Label
+var fracture_node_buttons: Dictionary = {}
 
 var purchase_amount := 1
 
@@ -184,16 +189,160 @@ func _build_ui() -> void:
 		purchases.add_child(button)
 		unit_buttons.append(button)
 
+	var bottom_actions := HBoxContainer.new()
+	bottom_actions.add_theme_constant_override("separation", 8)
+	root.add_child(bottom_actions)
+
 	fracture_button = Button.new()
 	fracture_button.text = "FRACTURE"
 	fracture_button.custom_minimum_size.y = 62
+	fracture_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fracture_button.pressed.connect(_on_fracture_pressed)
-	root.add_child(fracture_button)
+	bottom_actions.add_child(fracture_button)
+
+	tree_button = Button.new()
+	tree_button.text = "FRACTURE TREE"
+	tree_button.custom_minimum_size = Vector2(300, 62)
+	tree_button.pressed.connect(_on_tree_pressed)
+	bottom_actions.add_child(tree_button)
 
 	effects_layer = Control.new()
 	effects_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	effects_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(effects_layer)
+
+	_build_fracture_tree_overlay()
+
+func _build_fracture_tree_overlay() -> void:
+	fracture_tree_overlay = ColorRect.new()
+	fracture_tree_overlay.color = Color(0.018, 0.022, 0.040, 0.985)
+	fracture_tree_overlay.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	fracture_tree_overlay.visible = false
+	add_child(fracture_tree_overlay)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 34)
+	margin.add_theme_constant_override("margin_right", 34)
+	margin.add_theme_constant_override("margin_top", 26)
+	margin.add_theme_constant_override("margin_bottom", 26)
+	fracture_tree_overlay.add_child(margin)
+
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 14)
+	margin.add_child(root)
+
+	var header := HBoxContainer.new()
+	root.add_child(header)
+
+	var title := Label.new()
+	title.text = "FRACTURE TREE"
+	title.add_theme_font_size_override("font_size", 34)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+
+	fracture_tree_fragments_label = Label.new()
+	fracture_tree_fragments_label.add_theme_font_size_override(
+		"font_size",
+		28
+	)
+	fracture_tree_fragments_label.horizontal_alignment = (
+		HORIZONTAL_ALIGNMENT_RIGHT
+	)
+	fracture_tree_fragments_label.size_flags_horizontal = (
+		Control.SIZE_EXPAND_FILL
+	)
+	header.add_child(fracture_tree_fragments_label)
+
+	var close_button := Button.new()
+	close_button.text = "CLOSE"
+	close_button.custom_minimum_size = Vector2(140, 54)
+	close_button.pressed.connect(_on_tree_close_pressed)
+	header.add_child(close_button)
+
+	var hint := Label.new()
+	hint.text = (
+		"Fragments are spent permanently. " +
+		"Each branch changes a different part of the run."
+	)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 18)
+	root.add_child(hint)
+
+	var branches := HBoxContainer.new()
+	branches.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	branches.add_theme_constant_override("separation", 10)
+	root.add_child(branches)
+
+	for branch in FractureTree.BRANCHES:
+		var branch_box := VBoxContainer.new()
+		branch_box.custom_minimum_size.x = 330
+		branch_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		branch_box.add_theme_constant_override("separation", 8)
+		branches.add_child(branch_box)
+
+		var branch_title := Label.new()
+		branch_title.text = String(branch["name"])
+		branch_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		branch_title.add_theme_font_size_override("font_size", 22)
+		branch_box.add_child(branch_title)
+
+		for node in FractureTree.nodes_for_branch(
+			String(branch["id"])
+		):
+			var node_id := String(node["id"])
+			var node_button := Button.new()
+			node_button.custom_minimum_size.y = 150
+			node_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			node_button.add_theme_font_size_override("font_size", 16)
+			node_button.pressed.connect(
+				_on_fracture_node_pressed.bind(node_id)
+			)
+			branch_box.add_child(node_button)
+			fracture_node_buttons[node_id] = node_button
+
+func _update_fracture_tree_ui() -> void:
+	if fracture_tree_overlay == null:
+		return
+
+	fracture_tree_fragments_label.text = "%s FRAGMENTS" % (
+		Balance.format_number(state.fragments)
+	)
+
+	for node in FractureTree.NODES:
+		var node_id := String(node["id"])
+		if not fracture_node_buttons.has(node_id):
+			continue
+
+		var button: Button = fracture_node_buttons[node_id]
+		var current_level := state.fracture_upgrade_level(node_id)
+		var max_level := int(node["max_level"])
+		var cost := FractureTree.cost(
+			state.fracture_upgrades,
+			node_id
+		)
+
+		if current_level >= max_level:
+			button.text = "%s\nLv.%d/%d  MAX\n%s" % [
+				String(node["name"]),
+				current_level,
+				max_level,
+				String(node["description"])
+			]
+			button.disabled = true
+		else:
+			button.text = "%s\nLv.%d/%d  COST %d F\n%s" % [
+				String(node["name"]),
+				current_level,
+				max_level,
+				cost,
+				String(node["description"])
+			]
+			button.disabled = not state.can_buy_fracture_upgrade(
+				node_id
+			)
 
 func _on_target_pressed(slot_index: int) -> void:
 	state.fire_at(slot_index)
@@ -215,7 +364,28 @@ func _on_fracture_pressed() -> void:
 	if state.fracture():
 		_show_event("FRACTURE COMPLETE")
 		SaveSystem.save_game(state)
+		_set_tree_visible(true)
 	_update_ui()
+
+func _on_tree_pressed() -> void:
+	_set_tree_visible(not fracture_tree_overlay.visible)
+
+func _on_tree_close_pressed() -> void:
+	_set_tree_visible(false)
+
+func _on_fracture_node_pressed(node_id: String) -> void:
+	if state.buy_fracture_upgrade(node_id):
+		_show_event("UPGRADE: " + String(
+			FractureTree.get_node(node_id).get("name", node_id)
+		))
+		SaveSystem.save_game(state)
+	_update_ui()
+	_update_fracture_tree_ui()
+
+func _set_tree_visible(value: bool) -> void:
+	fracture_tree_overlay.visible = value
+	if value:
+		_update_fracture_tree_ui()
 
 func _on_damage_dealt(
 	slot_index: int,
@@ -439,3 +609,10 @@ func _update_ui() -> void:
 	else:
 		fracture_button.text = "FRACTURE — REACH WAVE 100"
 	fracture_button.disabled = reward <= 0
+
+	tree_button.text = "FRACTURE TREE   •   %s F" % (
+		Balance.format_number(state.fragments)
+	)
+
+	if fracture_tree_overlay.visible:
+		_update_fracture_tree_ui()
