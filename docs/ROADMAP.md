@@ -77,8 +77,8 @@ Second prestige layer. Details remain intentionally open until Fracture progress
 
 - [x] iOS export preset template
 - [x] macOS Godot → Xcode workflow
-- [ ] unsigned iphoneos Xcode build — validation in progress
-- [ ] unsigned IPA artifact — validation in progress
+- [x] unsigned iphoneos Xcode build
+- [x] unsigned IPA artifact
 - [ ] signing secrets / signed IPA
 - [ ] device installation test
 - [ ] performance/battery profiling
@@ -160,3 +160,26 @@ The current gate is successful creation of:
 - a readable generated Xcode project;
 - an unsigned Release `.app` for `iphoneos`;
 - `ChronoExponent-unsigned.ipa` suitable for later re-signing.
+
+
+## iOS unsigned-build milestone — validated
+
+Validated in GitHub Actions macOS run **#9**:
+
+- Godot 4.7.2 macOS launch: passed;
+- matching iOS export templates: passed;
+- Godot project import: passed;
+- Godot → Xcode project export: passed;
+- generated Xcode project validation: passed;
+- unsigned Release build for `iphoneos`: passed;
+- `.app` bundle creation: passed;
+- unsigned IPA packaging: passed;
+- IPA artifact upload: passed;
+- Xcode project artifact upload: passed.
+
+Artifacts from the validation run:
+
+- `ChronoExponent-unsigned-IPA` — ~27.4 MiB;
+- `ChronoExponent-iOS-Xcode` — ~394.8 MiB.
+
+The next iOS gate is **signing / re-signing and installation on a real iPhone**. The unsigned IPA itself is not directly installable until a valid Apple signature is applied.
