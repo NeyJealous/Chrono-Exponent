@@ -29,5 +29,8 @@ jobs:
       - name: Gameplay smoke test
         run: godot --headless --path . -s res://tests/smoke_test.gd
 
+      - name: Balance simulation
+        run: godot --headless --path . -s res://tools/balance_simulator.gd
+
       - name: Boot main scene
         run: godot --headless --path . --quit-after 2
