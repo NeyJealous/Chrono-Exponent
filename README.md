@@ -28,10 +28,19 @@ Implemented foundation:
 - weapon upgrades;
 - three automatic combat units;
 - passive DPS;
-- first prestige layer scaffold: Fracture / Fragments;
+- first prestige layer: Fracture / Fragments;
+- functional 15-node Fracture Tree;
+- five-target battlefield;
+- Basic / Armored / Shielded / Regenerator targets;
+- critical hits and combat feedback;
+- ×1 / ×10 / ×25 / MAX purchasing;
+- milestone unit unlocks;
+- headless gameplay smoke tests;
+- automated balance simulator;
 - local save;
 - basic offline reward;
-- statistics foundation.
+- statistics foundation;
+- manual GitHub Actions iOS/Xcode export pipeline.
 
 ## Run locally
 
@@ -47,6 +56,8 @@ Implemented foundation:
 - `docs/FRACTURE_TREE.md` — permanent Fracture upgrade tree.
 - `docs/ARCHITECTURE.md` — technical architecture.
 - `docs/ROADMAP.md` — implementation roadmap.
+- `docs/BALANCE_NOTES.md` — progression calibration notes.
+- `docs/IOS_BUILD.md` — staged iOS/Xcode/IPA build pipeline.
 
 When documents disagree, follow `docs/GDD_CANONICAL.md` unless a newer decision explicitly supersedes it.
 
