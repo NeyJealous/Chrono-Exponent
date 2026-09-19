@@ -29,6 +29,9 @@ jobs:
       - name: Gameplay smoke test
         run: godot --headless --path . -s res://tests/smoke_test.gd
 
+      - name: Save migration tests
+        run: godot --headless --path . -s res://tests/save_migration_test.gd
+
       - name: Balance simulation
         run: godot --headless --path . -s res://tools/balance_simulator.gd
 
