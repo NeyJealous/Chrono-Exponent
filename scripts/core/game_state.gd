@@ -342,7 +342,7 @@ func buy_unit_amount(index: int, quantity: int) -> int:
 	return levels
 
 func fracture_reward() -> int:
-	var base_reward := Balance.fracture_reward(highest_wave)
+	var base_reward := Balance.fracture_reward(run_highest_wave)
 	if base_reward <= 0:
 		return 0
 
