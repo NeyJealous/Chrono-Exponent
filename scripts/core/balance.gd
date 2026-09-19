@@ -188,7 +188,7 @@ static func _geometric_bulk_cost(
 	if quantity <= 0:
 		return 0.0
 
-	var first_cost := base_cost * pow(growth, current_level)
+	var first_cost: float = base_cost * pow(growth, current_level)
 	if abs(growth - 1.0) < 0.000001:
 		return first_cost * quantity
 
@@ -210,8 +210,8 @@ static func _max_affordable_levels(
 	if abs(growth - 1.0) < 0.000001:
 		return int(floor(budget / first_cost))
 
-	var scaled := 1.0 + budget * (growth - 1.0) / first_cost
-	var levels := max(0, int(floor(log(scaled) / log(growth))))
+	var scaled: float = 1.0 + budget * (growth - 1.0) / first_cost
+	var levels: int = max(0, int(floor(log(scaled) / log(growth))))
 
 	while levels > 0 and _geometric_bulk_cost(
 		base_cost,
