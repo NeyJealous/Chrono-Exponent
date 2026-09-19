@@ -259,8 +259,8 @@ func _print_acceleration(results: Array) -> void:
 		if previous <= 0.0:
 			continue
 
-		var speedup := previous / max(current, 0.001)
-		var reduction := (1.0 - current / previous) * 100.0
+		var speedup: float = previous / max(current, 0.001)
+		var reduction: float = (1.0 - current / previous) * 100.0
 
 		print(
 			"Run %d → %d | %.2fx speed | %.1f%% less time" % [
