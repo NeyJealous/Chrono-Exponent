@@ -431,7 +431,7 @@ func buy_fracture_upgrade(node_id: String) -> bool:
 		energy += 25.0
 
 	if node_id == "wave_memory":
-		var desired_wave := min(
+		var desired_wave: int = min(
 			FractureTree.starting_wave(fracture_upgrades),
 			highest_wave
 		)
@@ -448,10 +448,10 @@ func buy_fracture_upgrade(node_id: String) -> bool:
 	return true
 
 func add_offline_reward(seconds: float) -> float:
-	var capped_seconds := min(seconds, 12.0 * 60.0 * 60.0)
-	var effective_dps := max(total_dps(), tap_damage() * 0.25)
+	var capped_seconds: float = min(seconds, 12.0 * 60.0 * 60.0)
+	var effective_dps: float = max(total_dps(), tap_damage() * 0.25)
 
-	var reward := (
+	var reward: float = (
 		effective_dps *
 		capped_seconds *
 		0.10 *
