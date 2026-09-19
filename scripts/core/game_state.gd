@@ -23,6 +23,12 @@ var boss_time_left := 0.0
 var unit_attack_timers := [0.0, 0.0, 0.0]
 var auto_fire_timer := 0.0
 
+const PROGRESSION_PUSH := "push"
+const PROGRESSION_FARM := "farm"
+
+var progression_mode := PROGRESSION_PUSH
+var farm_wave := 1
+
 var total_damage := 0.0
 var total_energy := 0.0
 var total_kills := 0
@@ -67,6 +73,41 @@ func start_wave() -> void:
 		else 0.0
 	)
 	wave_started.emit(wave)
+
+func max_selectable_wave() -> int:
+	return max(1, run_highest_wave)
+
+func is_farm_mode() -> bool:
+	return progression_mode == PROGRESSION_FARM
+
+func set_push_mode() -> void:
+	progression_mode = PROGRESSION_PUSH
+
+func set_farm_mode() -> void:
+	progression_mode = PROGRESSION_FARM
+	farm_wave = wave
+
+	if Balance.is_boss(farm_wave):
+		farm_wave = max(1, farm_wave - 1)
+		wave = farm_wave
+		start_wave()
+
+func select_wave(target_wave: int) -> bool:
+	if target_wave < 1 or target_wave > max_selectable_wave():
+		return false
+
+	if is_farm_mode() and Balance.is_boss(target_wave):
+		return false
+
+	wave = target_wave
+	if is_farm_mode():
+		farm_wave = wave
+
+	start_wave()
+	return true
+
+func step_wave(delta: int) -> bool:
+	return select_wave(wave + delta)
 
 func tap_damage() -> float:
 	return (
@@ -255,15 +296,24 @@ func complete_wave() -> void:
 		run_bosses += 1
 
 	wave_completed.emit(completed_wave)
-	wave += 1
-	highest_wave = max(highest_wave, wave)
-	run_highest_wave = max(run_highest_wave, wave)
+
+	if is_farm_mode():
+		wave = farm_wave
+	else:
+		wave += 1
+		highest_wave = max(highest_wave, wave)
+		run_highest_wave = max(run_highest_wave, wave)
+
 	start_wave()
 
 func fail_boss() -> void:
 	var failed_wave := wave
 	boss_failed.emit(failed_wave)
-	wave = max(1, wave - 1)
+
+	wave = max(1, failed_wave - 1)
+	progression_mode = PROGRESSION_FARM
+	farm_wave = wave
+
 	start_wave()
 
 func has_alive_enemies() -> bool:
@@ -387,6 +437,8 @@ func fracture() -> bool:
 	unit_levels = [0, 0, 0]
 	unit_attack_timers = [0.0, 0.0, 0.0]
 	auto_fire_timer = 0.0
+	progression_mode = PROGRESSION_PUSH
+	farm_wave = wave
 
 	run_time = 0.0
 	run_start_wave = wave
@@ -466,7 +518,7 @@ func add_offline_reward(seconds: float) -> float:
 
 func to_dict() -> Dictionary:
 	return {
-		"save_version": 4,
+		"save_version": 5,
 		"timestamp": Time.get_unix_time_from_system(),
 		"wave": wave,
 		"highest_wave": highest_wave,
@@ -475,6 +527,8 @@ func to_dict() -> Dictionary:
 		"weapon_level": weapon_level,
 		"unit_levels": unit_levels,
 		"fracture_upgrades": fracture_upgrades,
+		"progression_mode": progression_mode,
+		"farm_wave": farm_wave,
 		"total_damage": total_damage,
 		"total_energy": total_energy,
 		"total_kills": total_kills,
@@ -503,6 +557,15 @@ func load_dict(data: Dictionary) -> float:
 	var loaded_units: Array = data.get("unit_levels", [0, 0, 0])
 	for i in min(loaded_units.size(), unit_levels.size()):
 		unit_levels[i] = int(loaded_units[i])
+
+	progression_mode = String(data.get(
+		"progression_mode",
+		PROGRESSION_PUSH
+	))
+	farm_wave = int(data.get("farm_wave", wave))
+
+	if progression_mode != PROGRESSION_FARM:
+		progression_mode = PROGRESSION_PUSH
 
 	fracture_upgrades.clear()
 	var loaded_upgrades: Dictionary = data.get(
@@ -535,6 +598,16 @@ func load_dict(data: Dictionary) -> float:
 		"last_fracture_summary",
 		{}
 	).duplicate(true)
+
+	farm_wave = clampi(
+		farm_wave,
+		1,
+		max(1, run_highest_wave)
+	)
+	if progression_mode == PROGRESSION_FARM:
+		if Balance.is_boss(farm_wave):
+			farm_wave = max(1, farm_wave - 1)
+		wave = farm_wave
 
 	unit_attack_timers = [0.0, 0.0, 0.0]
 	auto_fire_timer = 0.0

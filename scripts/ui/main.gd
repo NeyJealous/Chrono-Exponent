@@ -14,6 +14,14 @@ var purchase_mode_buttons: Array[Button] = []
 var fracture_button: Button
 var tree_button: Button
 
+var push_mode_button: Button
+var farm_mode_button: Button
+var wave_back_10_button: Button
+var wave_back_1_button: Button
+var wave_forward_1_button: Button
+var wave_forward_10_button: Button
+var wave_control_label: Label
+
 var fracture_tree_overlay: ColorRect
 var fracture_tree_fragments_label: Label
 var fracture_node_buttons: Dictionary = {}
@@ -135,6 +143,54 @@ func _build_ui() -> void:
 	boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	boss_label.add_theme_font_size_override("font_size", 24)
 	arena.add_child(boss_label)
+
+	var wave_controls := HBoxContainer.new()
+	wave_controls.alignment = BoxContainer.ALIGNMENT_CENTER
+	wave_controls.add_theme_constant_override("separation", 6)
+	arena.add_child(wave_controls)
+
+	wave_back_10_button = Button.new()
+	wave_back_10_button.text = "−10"
+	wave_back_10_button.custom_minimum_size = Vector2(82, 46)
+	wave_back_10_button.pressed.connect(_on_wave_step_pressed.bind(-10))
+	wave_controls.add_child(wave_back_10_button)
+
+	wave_back_1_button = Button.new()
+	wave_back_1_button.text = "−1"
+	wave_back_1_button.custom_minimum_size = Vector2(72, 46)
+	wave_back_1_button.pressed.connect(_on_wave_step_pressed.bind(-1))
+	wave_controls.add_child(wave_back_1_button)
+
+	wave_control_label = Label.new()
+	wave_control_label.custom_minimum_size = Vector2(235, 46)
+	wave_control_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	wave_control_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	wave_control_label.add_theme_font_size_override("font_size", 18)
+	wave_controls.add_child(wave_control_label)
+
+	wave_forward_1_button = Button.new()
+	wave_forward_1_button.text = "+1"
+	wave_forward_1_button.custom_minimum_size = Vector2(72, 46)
+	wave_forward_1_button.pressed.connect(_on_wave_step_pressed.bind(1))
+	wave_controls.add_child(wave_forward_1_button)
+
+	wave_forward_10_button = Button.new()
+	wave_forward_10_button.text = "+10"
+	wave_forward_10_button.custom_minimum_size = Vector2(82, 46)
+	wave_forward_10_button.pressed.connect(_on_wave_step_pressed.bind(10))
+	wave_controls.add_child(wave_forward_10_button)
+
+	push_mode_button = Button.new()
+	push_mode_button.text = "PUSH"
+	push_mode_button.custom_minimum_size = Vector2(120, 46)
+	push_mode_button.pressed.connect(_on_push_mode_pressed)
+	wave_controls.add_child(push_mode_button)
+
+	farm_mode_button = Button.new()
+	farm_mode_button.text = "FARM"
+	farm_mode_button.custom_minimum_size = Vector2(120, 46)
+	farm_mode_button.pressed.connect(_on_farm_mode_pressed)
+	wave_controls.add_child(farm_mode_button)
 
 	var target_grid := GridContainer.new()
 	target_grid.columns = 3
@@ -548,6 +604,37 @@ func _update_fracture_tree_ui() -> void:
 				node_id
 			)
 
+func _on_push_mode_pressed() -> void:
+	state.set_push_mode()
+	_show_event("PUSH MODE — ADVANCING")
+	SaveSystem.save_game(state)
+	_update_ui()
+
+func _on_farm_mode_pressed() -> void:
+	state.set_farm_mode()
+	_show_event("FARM MODE — WAVE %d" % state.wave)
+	SaveSystem.save_game(state)
+	_update_ui()
+
+func _on_wave_step_pressed(delta: int) -> void:
+	var target_wave := clampi(
+		state.wave + delta,
+		1,
+		state.max_selectable_wave()
+	)
+
+	if target_wave == state.wave:
+		return
+
+	if not state.select_wave(target_wave):
+		if state.is_farm_mode() and Balance.is_boss(target_wave):
+			_show_event("BOSS WAVES REQUIRE PUSH MODE")
+		return
+		return
+
+	SaveSystem.save_game(state)
+	_update_ui()
+
 func _on_target_pressed(slot_index: int) -> void:
 	state.fire_at(slot_index)
 	_update_ui()
@@ -721,7 +808,10 @@ func _on_wave_completed(completed_wave: int) -> void:
 		_show_event("BOSS DEFEATED — WAVE %d" % completed_wave)
 
 func _on_boss_failed(failed_wave: int) -> void:
-	_show_event("BOSS FAILED — WAVE %d" % failed_wave)
+	_show_event(
+		"BOSS FAILED — FARMING WAVE %d" %
+		max(1, failed_wave - 1)
+	)
 
 func _show_event(message: String) -> void:
 	event_label.text = message
@@ -834,6 +924,40 @@ func _update_ui() -> void:
 
 	wave_label.text = "WAVE %d" % state.wave
 	energy_label.text = "%s ENERGY" % Balance.format_number(state.energy)
+
+	var max_wave: int = state.max_selectable_wave()
+	wave_control_label.text = "SELECT %d / %d" % [
+		state.wave,
+		max_wave
+	]
+
+	wave_back_10_button.disabled = state.wave <= 1
+	wave_back_1_button.disabled = state.wave <= 1
+
+	var next_wave: int = min(state.wave + 1, max_wave)
+	var next_10_wave: int = min(state.wave + 10, max_wave)
+
+	wave_forward_1_button.disabled = (
+		state.wave >= max_wave or
+		(state.is_farm_mode() and Balance.is_boss(next_wave))
+	)
+	wave_forward_10_button.disabled = (
+		state.wave >= max_wave or
+		(
+			state.is_farm_mode() and
+			Balance.is_boss(next_10_wave)
+		)
+	)
+
+	push_mode_button.disabled = not state.is_farm_mode()
+	farm_mode_button.disabled = state.is_farm_mode()
+
+	if state.is_farm_mode():
+		farm_mode_button.text = "FARM ✓"
+		push_mode_button.text = "PUSH"
+	else:
+		farm_mode_button.text = "FARM"
+		push_mode_button.text = "PUSH ✓"
 
 	if Balance.is_boss(state.wave):
 		var remaining: float = max(state.boss_time_left, 0.0)

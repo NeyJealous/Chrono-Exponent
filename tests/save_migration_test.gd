@@ -4,6 +4,7 @@ func _init() -> void:
 	_test_v1_to_current()
 	_test_v2_to_current()
 	_test_v3_to_current()
+	_test_v4_to_current()
 	_test_normalization()
 	_test_future_version_rejected()
 
@@ -93,9 +94,35 @@ func _test_v3_to_current() -> void:
 		"v3 migration adds last Fracture summary"
 	)
 
+func _test_v4_to_current() -> void:
+	var legacy := {
+		"save_version": 4,
+		"wave": 27,
+		"highest_wave": 40,
+		"run_highest_wave": 31,
+		"unit_levels": [4, 3, 2]
+	}
+
+	var migrated := SaveSystem.migrate_data(legacy)
+
+	_check(
+		int(migrated.get("save_version", 0)) ==
+		SaveSystem.CURRENT_SAVE_VERSION,
+		"v4 migrates to current version"
+	)
+	_check(
+		String(migrated.get("progression_mode", "")) ==
+		GameState.PROGRESSION_PUSH,
+		"v4 migration defaults to Push mode"
+	)
+	_check(
+		int(migrated.get("farm_wave", 0)) == 27,
+		"v4 migration initializes farm wave from current wave"
+	)
+
 func _test_normalization() -> void:
 	var malformed := {
-		"save_version": 4,
+		"save_version": 5,
 		"wave": -5,
 		"highest_wave": -1,
 		"energy": -100.0,
@@ -108,7 +135,9 @@ func _test_normalization() -> void:
 		"run_damage": -20.0,
 		"run_energy_earned": -30.0,
 		"run_kills": -4,
-		"last_fracture_summary": "invalid"
+		"last_fracture_summary": "invalid",
+		"progression_mode": "invalid",
+		"farm_wave": 999
 	}
 
 	var normalized := SaveSystem.migrate_data(malformed)
@@ -134,6 +163,16 @@ func _test_normalization() -> void:
 	_check(
 		typeof(normalized["last_fracture_summary"]) == TYPE_DICTIONARY,
 		"invalid run summary is normalized"
+	)
+	_check(
+		String(normalized["progression_mode"]) ==
+		GameState.PROGRESSION_PUSH,
+		"invalid progression mode normalizes to Push"
+	)
+	_check(
+		int(normalized["farm_wave"]) <=
+		int(normalized["run_highest_wave"]),
+		"farm wave is clamped to current-run progress"
 	)
 
 func _test_future_version_rejected() -> void:

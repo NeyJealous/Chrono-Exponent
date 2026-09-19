@@ -23,6 +23,9 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 - [x] Hit feedback
 - [x] Damage numbers
 - [x] Basic particles
+- [x] Push / Farm progression modes
+- [x] Manual current-run wave selection
+- [x] Boss failure → automatic Farm mode
 
 **Gate:** combat is responsive and can run for 15 minutes without state errors.
 
@@ -184,3 +187,17 @@ Artifacts from the validation run:
 - `ChronoExponent-iOS-Xcode` — ~394.8 MiB.
 
 The next iOS gate is **signing / re-signing and installation on a real iPhone**. The unsigned IPA itself is not directly installable until a valid Apple signature is applied.
+
+
+## Real-device feedback — boss loop / wave control
+
+Implemented after the first successful iPhone test:
+
+- boss failure no longer forces an automatic retry loop;
+- failed boss switches to FARM on the previous normal wave;
+- FARM repeats the selected wave until the player chooses otherwise;
+- PUSH resumes normal forward progression;
+- player can select any wave reached during the current run;
+- boss waves cannot be used as permanent FARM targets;
+- wave-control state is persisted in save version 5;
+- balance simulator farms until an upgrade is purchased, then retries in PUSH.
