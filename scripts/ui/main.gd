@@ -428,10 +428,10 @@ func _build_fracture_dialogs() -> void:
 
 
 func _format_duration(seconds_value: float) -> String:
-	var total_seconds := max(0, int(round(seconds_value)))
-	var hours := int(total_seconds / 3600)
-	var minutes := int((total_seconds % 3600) / 60)
-	var seconds := total_seconds % 60
+	var total_seconds: int = max(0, int(round(seconds_value)))
+	var hours: int = int(total_seconds / 3600)
+	var minutes: int = int((total_seconds % 3600) / 60)
+	var seconds: int = total_seconds % 60
 
 	if hours > 0:
 		return "%02d:%02d:%02d" % [hours, minutes, seconds]
