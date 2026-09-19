@@ -10,7 +10,7 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 - [x] Core/UI separation
 - [x] Design docs
 - [x] Headless validation workflow
-- [ ] iOS export workflow skeleton
+- [x] iOS export workflow skeleton
 
 ## Phase 1 — Core combat
 
@@ -42,7 +42,7 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 
 - [x] Fracture reset scaffold
 - [x] Fragment reward scaffold
-- [ ] Permanent upgrade tree
+- [x] Permanent upgrade tree — first 15 functional nodes
 - [ ] Prestige confirmation/summary
 - [ ] Run statistics
 
@@ -106,3 +106,27 @@ Next gate:
 3. tune first-run time to Wave 100;
 4. implement the first playable Fracture Tree nodes;
 5. create the first iOS export pipeline.
+
+
+## iOS pipeline status — 2026-09-19
+
+Implemented:
+
+- manual macOS GitHub Actions workflow;
+- Godot 4.7.2 macOS download;
+- matching iOS export template installation;
+- project-only iOS export preset;
+- Apple Team ID secret validation;
+- Xcode project verification;
+- Xcode project artifact upload.
+
+Pending:
+
+- configure repository secret `IOS_TEAM_ID`;
+- verify first successful Xcode export;
+- certificate/provisioning-profile secrets;
+- Xcode archive;
+- signed IPA;
+- installation test on a real iPhone.
+
+See `docs/IOS_BUILD.md`.
