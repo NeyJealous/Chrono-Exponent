@@ -103,33 +103,34 @@ Implemented after the initial foundation:
 
 Next gate:
 
-1. verify CI is green on Godot 4.7.2;
-2. run and calibrate the balance simulator;
-3. tune first-run time to Wave 100;
-4. implement the first playable Fracture Tree nodes;
-5. create the first iOS export pipeline.
+1. install the unsigned IPA on a real iPhone after re-signing;
+2. verify touch targets, safe areas and landscape UX;
+3. profile FPS, battery usage and device temperature;
+4. implement export/import save;
+5. replace basic offline reward with accurate offline simulation.
 
 
-## iOS pipeline status — 2026-09-19
+## iOS pipeline status — validated
 
-Implemented:
+Implemented and validated:
 
-- manual macOS GitHub Actions workflow;
-- Godot 4.7.2 macOS download;
-- matching iOS export template installation;
-- project-only iOS export preset;
-- Apple Team ID secret validation;
-- Xcode project verification;
-- Xcode project artifact upload.
+- macOS GitHub Actions workflow;
+- Godot 4.7.2 macOS runtime;
+- matching iOS export templates;
+- iOS export preset;
+- Godot → Xcode project export;
+- Xcode project validation;
+- unsigned Release build for `iphoneos`;
+- `.app` creation;
+- unsigned IPA packaging;
+- IPA and Xcode artifacts.
 
 Pending:
 
-- configure repository secret `IOS_TEAM_ID`;
-- verify first successful Xcode export;
-- certificate/provisioning-profile secrets;
-- Xcode archive;
-- signed IPA;
-- installation test on a real iPhone.
+- Apple signing / re-signing for installation;
+- installation test on a real iPhone;
+- touch / Safe Area / Haptics validation;
+- performance, battery and temperature profiling.
 
 See `docs/IOS_BUILD.md`.
 
@@ -164,7 +165,7 @@ The current gate is successful creation of:
 
 ## iOS unsigned-build milestone — validated
 
-Validated in GitHub Actions macOS run **#9**:
+Validated in GitHub Actions macOS run **#13**:
 
 - Godot 4.7.2 macOS launch: passed;
 - matching iOS export templates: passed;
