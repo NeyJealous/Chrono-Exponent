@@ -67,3 +67,22 @@ Future calibration should record:
 Do not compensate for a broken base economy by making permanent prestige bonuses absurdly large.
 
 The first run must already have a healthy progression curve.
+
+
+## Simulator diagnostics — Fracture summary milestone
+
+The headless simulator now records, per run:
+
+- Wave 10 / 25 / 50 / 75 / 100 timestamps;
+- Pulse Drone / Beam Array / Rail Cannon unlock timestamps;
+- boss failure count;
+- longest period without a successful purchase;
+- Fracture reward;
+- weapon and unit levels;
+- run-to-run time reduction and speed multiplier.
+
+Preferred first-run target remains **30–60 minutes**.
+
+A broader **20–80 minute guardrail** is reported separately so experimental balance changes can be diagnosed without immediately turning every tuning deviation into a hard CI failure.
+
+Second and third runs should trend faster than the previous run. Exact acceleration targets remain intentionally unfixed until real simulator output and on-device playtesting are available.
