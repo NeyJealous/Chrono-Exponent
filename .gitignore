@@ -1,0 +1,17 @@
+# Godot 4
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+
+# Builds
+build/
+dist/
+*.ipa
+*.xcarchive
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
