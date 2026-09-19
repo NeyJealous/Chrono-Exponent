@@ -53,7 +53,7 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 - [x] JSON local save
 - [x] Autosave scaffold
 - [x] Basic offline reward
-- [ ] Version migrations
+- [x] Version migrations (v1 → v2 → v3 + normalization tests)
 - [ ] Export/import save
 - [ ] Accurate offline simulation
 
@@ -130,3 +130,14 @@ Pending:
 - installation test on a real iPhone.
 
 See `docs/IOS_BUILD.md`.
+
+
+## Validation checkpoint
+
+The current Prototype 0.1 codebase must pass the pull-request CI gate before this checkpoint is merged:
+
+- Godot import;
+- gameplay smoke test;
+- save migration tests;
+- three-run balance simulation;
+- main-scene headless boot.
