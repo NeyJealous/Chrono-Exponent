@@ -75,12 +75,14 @@ Second prestige layer. Details remain intentionally open until Fracture progress
 
 ## Phase 9 — iOS production
 
-- iOS export preset
-- signing secrets
-- GitHub Actions IPA
-- device testing
-- performance/battery profiling
-- touch/Haptics/Safe Area polish
+- [x] iOS export preset template
+- [x] macOS Godot → Xcode workflow
+- [ ] unsigned iphoneos Xcode build — validation in progress
+- [ ] unsigned IPA artifact — validation in progress
+- [ ] signing secrets / signed IPA
+- [ ] device installation test
+- [ ] performance/battery profiling
+- [ ] touch/Haptics/Safe Area polish
 
 
 ## Current prototype note — 2026-09-19
@@ -147,3 +149,14 @@ Implemented on the Fracture-summary branch:
 - regression test preventing repeated Fracture from reusing a lifetime record.
 
 This closes the basic prestige UX loop. The next balance gate is to compare first-run and second-run times using the simulator.
+
+
+## iOS unsigned-build gate
+
+The iOS pipeline no longer requires a real Team ID merely to validate Godot → Xcode export. A 10-character placeholder is used only for project generation when `IOS_TEAM_ID` is absent, while Xcode compilation explicitly disables signing.
+
+The current gate is successful creation of:
+
+- a readable generated Xcode project;
+- an unsigned Release `.app` for `iphoneos`;
+- `ChronoExponent-unsigned.ipa` suitable for later re-signing.
