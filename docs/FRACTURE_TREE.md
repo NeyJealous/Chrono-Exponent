@@ -235,3 +235,39 @@ Some upgrades will naturally be stronger at different stages, but the tree shoul
 For Prototype 0.1, implement only 3 nodes per branch plus one branch capstone placeholder.
 
 Full branch depth comes after balance simulation proves that Fracture itself is fun.
+
+
+---
+
+# Implemented Prototype Tier — v0.1
+
+The first playable implementation contains 15 purchasable nodes.
+
+## Arsenal
+- Residual Caliber — +20% manual damage per level.
+- Critical Memory — +0.5 percentage points crit chance per level.
+- Heavy Chamber — +0.10 critical multiplier per level.
+
+## Squadron
+- Team Synchronization — +15% Team DPS per level.
+- Calibration — +3% unit attack speed per level.
+- Targeting Network — +10% Team damage against bosses per level.
+
+## Reactor
+- Residual Energy — +10% Energy income per level.
+- Boss Harvest — +15% boss Energy per level.
+- Deep Extraction — adds wave-depth scaling to Energy income.
+
+## Temporal
+- Starting Charge — +25 starting Energy per level.
+- Wave Memory — +2 starting waves per level.
+- Fragment Echo — +10% Fragments per level.
+
+## Systems
+- Auto Fire — one-level unlock for automatic player fire.
+- Targeting Assist — +5% Auto Fire rate per level.
+- Offline Processor — +10% offline efficiency per level.
+
+These nodes are the first functional layer only. The Tier 2 / Tier 3 / capstone design above remains planned and is not yet implemented.
+
+Fragments themselves no longer provide passive power merely by sitting unspent. Permanent strength comes from purchased tree nodes.
