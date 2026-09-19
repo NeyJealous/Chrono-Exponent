@@ -158,3 +158,22 @@ f6b8f942668215d3120a89d5889885f0ad337e5080f797a6ef4d6ebc9a10f3dd
 This proves that the current project can be transformed on a GitHub-hosted macOS runner from Godot source into a real iPhoneOS application bundle and packaged IPA without local macOS hardware.
 
 The next validation is no longer a compilation problem. It is a signing and real-device installation problem.
+
+
+## Validated result — iOS Unsigned Build #13
+
+The full unsigned pipeline has now been executed successfully on GitHub-hosted macOS:
+
+```text
+Godot 4.7.2
+→ iOS export templates
+→ Xcode project
+→ xcodebuild Release / iphoneos / no code signing
+→ .app
+→ Payload
+→ ChronoExponent-unsigned.ipa
+```
+
+Both the unsigned IPA and generated Xcode archive artifacts were uploaded successfully.
+
+This proves the project is currently compilable for real iPhone hardware. The remaining installation barrier is Apple code signing, not game compilation.
