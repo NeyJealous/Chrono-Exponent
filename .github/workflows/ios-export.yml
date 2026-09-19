@@ -100,33 +100,41 @@ jobs:
             exit 1
           fi
 
-      # Project icon must be configured for iOS asset generation.
+      # Godot project-only export can return a non-zero status after writing
+      # a complete Xcode project, so validate the generated project itself.
       - name: Export Xcode project
         shell: bash
         run: |
+          rm -rf build/ios
           mkdir -p build/ios
+
+          set +e
           set -o pipefail
           "$GODOT_BIN" \
-            --verbose \
             --headless \
             --path . \
             --export-release "iOS" \
             "$(pwd)/build/ios/ChronoExponent.zip" 2>&1 | tee godot-ios-export.log
+          GODOT_EXPORT_STATUS=${PIPESTATUS[0]}
+          set -e
 
-          if grep -Eq "SCRIPT ERROR|Parse Error|Compile Error|ERROR:" godot-ios-export.log; then
-            echo "::error::Godot iOS export reported an error."
+          if grep -Eq "SCRIPT ERROR|Parse Error|Compile Error|Project export for preset .* failed|Export Icons: Invalid|Cannot export project" godot-ios-export.log; then
+            echo "::error::Godot iOS export reported a fatal error."
             exit 1
           fi
 
-          test -f build/ios/ChronoExponent.zip
-          unzip -q build/ios/ChronoExponent.zip -d build/ios/xcode
-
-          PROJECT="$(find build/ios/xcode -type d -name '*.xcodeproj' -print -quit)"
+          PROJECT="$(find build/ios -type d -name '*.xcodeproj' -print -quit)"
           if [ -z "$PROJECT" ]; then
-            echo "::error::Godot export did not produce an Xcode project."
+            echo "::error::Godot export did not produce an Xcode project (Godot exit: $GODOT_EXPORT_STATUS)."
             exit 1
           fi
+
+          if [ "$GODOT_EXPORT_STATUS" -ne 0 ]; then
+            echo "::notice::Godot returned $GODOT_EXPORT_STATUS after project-only export, but a complete Xcode project was generated; continuing with Xcode validation."
+          fi
+
           echo "XCODE_PROJECT=$PROJECT" >> "$GITHUB_ENV"
+          echo "Generated Xcode project: $PROJECT"
 
       - name: Validate generated Xcode project
         shell: bash
@@ -188,12 +196,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Archive generated Xcode project
+        shell: bash
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent             "$(dirname "$XCODE_PROJECT")"             build/ios/ChronoExponent-Xcode.zip
+          test -s build/ios/ChronoExponent-Xcode.zip
+
       - name: Upload generated Xcode project
         uses: actions/upload-artifact@v4
         with:
           name: ChronoExponent-iOS-Xcode
           path: |
-            build/ios/ChronoExponent.zip
+            build/ios/ChronoExponent-Xcode.zip
             build/ios/xcode-list.json
             build/ios/xcode-build.log
           if-no-files-found: error
