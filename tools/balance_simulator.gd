@@ -90,6 +90,9 @@ func _simulate_to_fracture(state: GameState) -> Dictionary:
 				)
 				last_purchase_time = elapsed
 
+	_record_milestones(state, elapsed, milestone_times)
+	_record_unit_unlocks(state, elapsed, unlock_times)
+
 	longest_purchase_drought = max(
 		longest_purchase_drought,
 		elapsed - last_purchase_time
