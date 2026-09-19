@@ -158,3 +158,40 @@ IPA artifact SHA-256 digest reported by GitHub Actions:
 This proves that the current project can be transformed on a GitHub-hosted macOS runner from Godot source into a real iPhoneOS application bundle and packaged IPA without local macOS hardware.
 
 The next validation is no longer a compilation problem. It is a signing and real-device installation problem.
+
+
+## Automatic GitHub Releases
+
+Successful iOS builds on `main` are published automatically as GitHub Releases.
+
+Release behavior:
+
+- gameplay/source changes merged into `main` trigger the iOS workflow;
+- pull requests build and validate the IPA but do **not** publish Releases;
+- manual `workflow_dispatch` on `main` also publishes a Release;
+- the marketing version is read from `application/short_version` in `export_presets.ios.example`;
+- the CI build number is `github.run_number`, so every published build is unique;
+- the generated IPA name contains both version and build number;
+- a `.sha256` checksum is uploaded beside the IPA;
+- re-running the same workflow does not create a duplicate Release; existing assets are replaced.
+
+Release tag format:
+
+```text
+v<version>-build.<github-run-number>
+```
+
+Example:
+
+```text
+v0.1.1-build.16
+```
+
+Release assets:
+
+```text
+ChronoExponent-0.1.1-build16-unsigned.ipa
+ChronoExponent-0.1.1-build16-unsigned.ipa.sha256
+```
+
+The Release is created only after Godot export, Xcode validation, unsigned iPhoneOS build, IPA packaging and artifact upload have succeeded.
