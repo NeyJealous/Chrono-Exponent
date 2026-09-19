@@ -27,7 +27,7 @@ jobs:
         run: |
           TEAM_ID="$IOS_TEAM_ID"
           if [ -z "$TEAM_ID" ]; then
-            TEAM_ID="AAAAAAAAAA"
+            TEAM_ID="ABCDE12XYZ"
             echo "::notice::IOS_TEAM_ID is not configured; using a placeholder Team ID for unsigned project-only validation."
           elif ! echo "$TEAM_ID" | grep -Eq '^[A-Z0-9]{10}$'; then
             echo "::error::IOS_TEAM_ID must be a 10-character Apple Team ID."
@@ -106,6 +106,7 @@ jobs:
           mkdir -p build/ios
           set -o pipefail
           "$GODOT_BIN" \
+            --verbose \
             --headless \
             --path . \
             --export-release "iOS" \
