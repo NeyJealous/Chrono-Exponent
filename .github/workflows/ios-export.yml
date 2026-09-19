@@ -2,15 +2,30 @@ name: iOS Unsigned Build
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ios-export.yml"
+      - "export_presets.ios.example"
+      - "project.godot"
+      - "scripts/**"
+      - "scenes/**"
+      - "assets/**"
   pull_request:
     paths:
       - ".github/workflows/ios-export.yml"
       - "export_presets.ios.example"
       - "project.godot"
+      - "scripts/**"
+      - "scenes/**"
+      - "assets/**"
+
+permissions:
+  contents: write
 
 jobs:
   export-and-build:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: macos-latest
     timeout-minutes: 30
 
@@ -21,6 +36,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Resolve build metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          preset = Path("export_presets.ios.example").read_text()
+          match = re.search(
+              r'application/short_version="([^"]+)"',
+              preset,
+          )
+          if not match:
+              raise SystemExit("Unable to read iOS short version")
+
+          version = match.group(1)
+          build = os.environ["GITHUB_RUN_NUMBER"]
+          tag = f"v{version}-build.{build}"
+          ipa_name = f"ChronoExponent-{version}-build{build}-unsigned.ipa"
+
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"APP_VERSION={version}\n")
+              env.write(f"APP_BUILD={build}\n")
+              env.write(f"RELEASE_TAG={tag}\n")
+              env.write(f"IPA_FILENAME={ipa_name}\n")
+              env.write(f"IPA_PATH=build/ios/{ipa_name}\n")
+
+          print(f"Version: {version}")
+          print(f"Build: {build}")
+          print(f"Release tag: {tag}")
+          PY
 
       - name: Resolve project-only Team ID
         shell: bash
@@ -82,11 +130,17 @@ jobs:
           cp export_presets.ios.example export_presets.cfg
           python3 - <<'PY'
           import os
+          import re
           from pathlib import Path
 
           path = Path("export_presets.cfg")
           text = path.read_text()
           text = text.replace("IOS_TEAM_ID", os.environ["EXPORT_TEAM_ID"])
+          text = re.sub(
+              r'application/version="[^"]+"',
+              f'application/version="{os.environ["APP_BUILD"]}"',
+              text,
+          )
           path.write_text(text)
           PY
 
@@ -184,15 +238,18 @@ jobs:
           rm -rf build/ios/Payload
           mkdir -p build/ios/Payload
           ditto "$IOS_APP_PATH" "build/ios/Payload/$(basename "$IOS_APP_PATH")"
-          (cd build/ios && /usr/bin/zip -qry ChronoExponent-unsigned.ipa Payload)
-          test -s build/ios/ChronoExponent-unsigned.ipa
-          ls -lh build/ios/ChronoExponent-unsigned.ipa
+          (cd build/ios && /usr/bin/zip -qry "$IPA_FILENAME" Payload)
+          test -s "$IPA_PATH"
+          shasum -a 256 "$IPA_PATH" | tee "$IPA_PATH.sha256"
+          ls -lh "$IPA_PATH"
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ChronoExponent-unsigned-IPA
-          path: build/ios/ChronoExponent-unsigned.ipa
+          name: ChronoExponent-${{ env.APP_VERSION }}-build${{ env.APP_BUILD }}-unsigned-IPA
+          path: |
+            ${{ env.IPA_PATH }}
+            ${{ env.IPA_PATH }}.sha256
           if-no-files-found: error
           retention-days: 14
 
@@ -212,3 +269,30 @@ jobs:
             build/ios/xcode-build.log
           if-no-files-found: error
           retention-days: 14
+
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES_FILE="build/ios/release-notes.md"
+          cat > "$NOTES_FILE" <<EOF
+          Automated Chrono Exponent iOS build.
+
+          - Version: $APP_VERSION
+          - Build: $APP_BUILD
+          - Commit: $GITHUB_SHA
+          - Platform: iPhoneOS arm64
+          - Signing: unsigned
+
+          The IPA must be signed or re-signed before installation on an iPhone.
+          EOF
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; replacing assets."
+            gh release upload "$RELEASE_TAG"               "$IPA_PATH"               "$IPA_PATH.sha256"               --clobber               --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$RELEASE_TAG"               "$IPA_PATH"               "$IPA_PATH.sha256"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "Chrono Exponent $APP_VERSION (build $APP_BUILD)"               --notes-file "$NOTES_FILE"
+          fi
