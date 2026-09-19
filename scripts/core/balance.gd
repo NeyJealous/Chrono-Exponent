@@ -3,7 +3,12 @@ extends RefCounted
 
 const BOSS_INTERVAL := 10
 const BOSS_TIME_SECONDS := 30.0
+const BOSS_HP_MULTIPLIER := 7.0
+const BOSS_REWARD_MULTIPLIER := 6.0
 const MAX_TARGET_SLOTS := 5
+
+const ENEMY_HP_GROWTH := 1.135
+const ENEMY_REWARD_GROWTH := 1.115
 
 const BASE_CRIT_CHANCE := 0.05
 const BASE_CRIT_MULTIPLIER := 2.0
@@ -54,9 +59,9 @@ static func enemy_count(wave: int) -> int:
 	return clampi(1 + int((wave - 1) / 10), 1, MAX_TARGET_SLOTS)
 
 static func wave_total_hp(wave: int) -> float:
-	var hp := 12.0 * pow(1.145, max(0, wave - 1))
+	var hp := 12.0 * pow(ENEMY_HP_GROWTH, max(0, wave - 1))
 	if is_boss(wave):
-		hp *= 8.0
+		hp *= BOSS_HP_MULTIPLIER
 	return hp
 
 static func enemy_hp(wave: int) -> float:
@@ -76,9 +81,9 @@ static func enemy_kind(wave: int, slot_index: int) -> String:
 	return "Basic"
 
 static func enemy_reward(wave: int) -> float:
-	var reward := 5.0 * pow(1.105, max(0, wave - 1))
+	var reward := 5.0 * pow(ENEMY_REWARD_GROWTH, max(0, wave - 1))
 	if is_boss(wave):
-		reward *= 6.0
+		reward *= BOSS_REWARD_MULTIPLIER
 	return reward
 
 static func enemy_reward_share(wave: int) -> float:
