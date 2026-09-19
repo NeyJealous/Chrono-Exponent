@@ -925,7 +925,7 @@ func _update_ui() -> void:
 	wave_label.text = "WAVE %d" % state.wave
 	energy_label.text = "%s ENERGY" % Balance.format_number(state.energy)
 
-	var max_wave := state.max_selectable_wave()
+	var max_wave: int = state.max_selectable_wave()
 	wave_control_label.text = "SELECT %d / %d" % [
 		state.wave,
 		max_wave
@@ -934,8 +934,8 @@ func _update_ui() -> void:
 	wave_back_10_button.disabled = state.wave <= 1
 	wave_back_1_button.disabled = state.wave <= 1
 
-	var next_wave := min(state.wave + 1, max_wave)
-	var next_10_wave := min(state.wave + 10, max_wave)
+	var next_wave: int = min(state.wave + 1, max_wave)
+	var next_10_wave: int = min(state.wave + 10, max_wave)
 
 	wave_forward_1_button.disabled = (
 		state.wave >= max_wave or
