@@ -42,8 +42,12 @@ Implemented foundation:
 
 ## Design
 
-- `docs/GDD.md` — game design.
+- `docs/GDD_CANONICAL.md` — **canonical full game design and current source of truth**.
+- `docs/GDD.md` — early compact GDD.
+- `docs/FRACTURE_TREE.md` — permanent Fracture upgrade tree.
 - `docs/ARCHITECTURE.md` — technical architecture.
 - `docs/ROADMAP.md` — implementation roadmap.
+
+When documents disagree, follow `docs/GDD_CANONICAL.md` unless a newer decision explicitly supersedes it.
 
 The prototype deliberately uses native Godot UI and placeholder shapes. Art direction comes after the gameplay loop is validated.
