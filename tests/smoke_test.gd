@@ -41,6 +41,48 @@ func _init() -> void:
 	_check(state.total_damage > 0.0, "combat records damage")
 	_check(state.total_kills > 0, "combat records kills")
 
+	state.wave = 10
+	state.highest_wave = 50
+	state.run_highest_wave = 10
+	state.start_wave()
+	state.boss_time_left = 0.01
+	state.tick(0.02)
+
+	_check(state.wave == 9, "failed boss returns to previous wave")
+	_check(state.is_farm_mode(), "failed boss automatically enables Farm mode")
+	_check(state.farm_wave == 9, "Farm mode targets the previous wave")
+
+	state.weapon_level = 100
+	var farm_target := state.first_alive_enemy()
+	_check(farm_target != null, "Farm wave has a target")
+	if farm_target != null:
+		state.fire_at(farm_target.slot_index)
+
+	_check(state.wave == 9, "Farm mode repeats the selected wave")
+
+	state.set_push_mode()
+	var push_target := state.first_alive_enemy()
+	_check(push_target != null, "Push wave has a target")
+	if push_target != null:
+		state.fire_at(push_target.slot_index)
+
+	_check(state.wave == 10, "Push mode advances back to the boss")
+	_check(not state.is_farm_mode(), "Push mode remains active")
+
+	_check(state.select_wave(5), "manual wave selection can move backward")
+	_check(state.wave == 5, "manual wave selection changes current wave")
+	_check(
+		not state.select_wave(11),
+		"manual selection cannot exceed current-run progress"
+	)
+
+	state.set_farm_mode()
+	_check(
+		not state.select_wave(10),
+		"Farm mode cannot select a boss wave"
+	)
+	state.set_push_mode()
+
 	state.wave = 21
 	state.highest_wave = 50
 	state.start_wave()
@@ -78,6 +120,10 @@ func _init() -> void:
 	_check(state.run_time == 0.0, "Fracture resets run time")
 	_check(state.run_damage == 0.0, "Fracture resets run damage")
 	_check(state.run_highest_wave == state.wave, "new run depth resets to start wave")
+	_check(
+		not state.is_farm_mode(),
+		"Fracture starts the new run in Push mode"
+	)
 	_check(
 		state.fracture_reward() == 0,
 		"global highest wave cannot be reused for immediate Fracture"
