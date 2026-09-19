@@ -9,7 +9,7 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 - [x] Landscape prototype
 - [x] Core/UI separation
 - [x] Design docs
-- [ ] Headless validation workflow
+- [x] Headless validation workflow
 - [ ] iOS export workflow skeleton
 
 ## Phase 1 — Core combat
@@ -19,10 +19,10 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 - [x] Waves
 - [x] Boss interval
 - [x] Boss timer
-- [ ] Multiple target slots
-- [ ] Hit feedback
-- [ ] Damage numbers
-- [ ] Basic particles
+- [x] Multiple target slots
+- [x] Hit feedback
+- [x] Damage numbers
+- [x] Basic particles
 
 **Gate:** combat is responsive and can run for 15 minutes without state errors.
 
@@ -32,9 +32,9 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 - [x] Weapon levels
 - [x] Three team units
 - [x] Passive DPS
-- [ ] Buy ×10 / ×25 / MAX
-- [ ] Unit unlock milestones
-- [ ] Balance simulation
+- [x] Buy ×10 / ×25 / MAX
+- [x] Unit unlock milestones
+- [x] Balance simulator scaffold (calibration pending)
 
 **Gate:** no progression wall before first Fracture.
 
@@ -81,3 +81,28 @@ Second prestige layer. Details remain intentionally open until Fracture progress
 - device testing
 - performance/battery profiling
 - touch/Haptics/Safe Area polish
+
+
+## Current prototype note — 2026-09-19
+
+Implemented after the initial foundation:
+
+- real five-slot battlefield state;
+- multiple simultaneous targets;
+- Basic / Armored / Shielded / Regenerator target states;
+- manual critical hits;
+- visual hit flash and floating damage;
+- destruction shard feedback;
+- unit-specific attack cadence;
+- milestone unlocks for Pulse Drone / Beam Array / Rail Cannon;
+- geometric bulk purchase math for ×10 / ×25 / MAX;
+- headless gameplay smoke test;
+- first automated balance simulator.
+
+Next gate:
+
+1. verify CI is green on Godot 4.7.2;
+2. run and calibrate the balance simulator;
+3. tune first-run time to Wave 100;
+4. implement the first playable Fracture Tree nodes;
+5. create the first iOS export pipeline.
