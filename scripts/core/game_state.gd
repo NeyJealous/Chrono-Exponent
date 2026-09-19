@@ -608,7 +608,6 @@ func load_dict(data: Dictionary) -> float:
 		if Balance.is_boss(farm_wave):
 			farm_wave = max(1, farm_wave - 1)
 		wave = farm_wave
-		wave = farm_wave
 
 	unit_attack_timers = [0.0, 0.0, 0.0]
 	auto_fire_timer = 0.0
