@@ -183,3 +183,22 @@ Artifacts from the validation run:
 - `ChronoExponent-iOS-Xcode` — ~394.8 MiB.
 
 The next iOS gate is **signing / re-signing and installation on a real iPhone**. The unsigned IPA itself is not directly installable until a valid Apple signature is applied.
+
+
+## iOS unsigned-build milestone — validated
+
+GitHub Actions macOS validation succeeded end-to-end:
+
+- Godot 4.7.2 macOS runner import;
+- matching iOS export templates;
+- Godot → Xcode project export;
+- Xcode project validation;
+- unsigned Release build for iphoneos;
+- .app bundle generation;
+- unsigned IPA packaging;
+- IPA artifact upload;
+- generated Xcode project artifact upload.
+
+Validated workflow run: **iOS Unsigned Build #13**.
+
+This establishes a reproducible iOS build pipeline that does not depend on Apple signing credentials. The next iOS gate is installation on a real iPhone via re-signing or adding native Apple signing to CI.
