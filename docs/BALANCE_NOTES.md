@@ -86,3 +86,20 @@ Preferred first-run target remains **30–60 minutes**.
 A broader **20–80 minute guardrail** is reported separately so experimental balance changes can be diagnosed without immediately turning every tuning deviation into a hard CI failure.
 
 Second and third runs should trend faster than the previous run. Exact acceleration targets remain intentionally unfixed until real simulator output and on-device playtesting are available.
+
+
+## Mirrored model sanity check — 2026-09-19
+
+A separate deterministic mirror of the current GameState formulas and the simulator's "4 taps/sec + cheapest purchase" strategy was used as a sanity check while GitHub Actions was unavailable for connector-created commits.
+
+Approximate result:
+
+| Run | Time to Fracture | Relative trend |
+|---|---:|---:|
+| 1 | 47:40 | baseline |
+| 2 | 35:00 | ~26% faster |
+| 3 | 30:12 | ~14% faster than Run 2 |
+
+This is **not authoritative** and must not replace the Godot headless simulator. It exists only to catch major logic errors and confirm that the current coefficients are in the intended region before CI/on-device verification.
+
+The authoritative target remains actual `GameState` execution under Godot.
