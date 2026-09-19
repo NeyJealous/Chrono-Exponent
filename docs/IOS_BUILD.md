@@ -136,3 +136,25 @@ The gates remain:
 ```
 
 Each stage must pass before the next stage is treated as stable.
+
+
+## Validated baseline — GitHub Actions run #9
+
+The unsigned pipeline has now completed successfully end-to-end.
+
+Produced artifacts:
+
+| Artifact | Size | Purpose |
+|---|---:|---|
+| `ChronoExponent-unsigned-IPA` | 28,761,575 bytes | unsigned IPA for later re-signing |
+| `ChronoExponent-iOS-Xcode` | 413,978,686 bytes | generated Xcode project/build diagnostics |
+
+IPA artifact SHA-256 digest reported by GitHub Actions:
+
+```text
+f6b8f942668215d3120a89d5889885f0ad337e5080f797a6ef4d6ebc9a10f3dd
+```
+
+This proves that the current project can be transformed on a GitHub-hosted macOS runner from Godot source into a real iPhoneOS application bundle and packaged IPA without local macOS hardware.
+
+The next validation is no longer a compilation problem. It is a signing and real-device installation problem.
