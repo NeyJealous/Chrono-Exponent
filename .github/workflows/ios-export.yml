@@ -1,12 +1,18 @@
-name: iOS Xcode Export
+name: iOS Unsigned Build
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/ios-export.yml"
+      - "export_presets.ios.example"
+      - "project.godot"
 
 jobs:
-  export-xcode-project:
+  export-and-build:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     env:
       GODOT_VERSION: "4.7.2"
@@ -14,36 +20,46 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Validate Apple Team ID secret
+      - name: Resolve project-only Team ID
         shell: bash
         run: |
-          if [ -z "$IOS_TEAM_ID" ]; then
-            echo "::error::Repository secret IOS_TEAM_ID is not configured."
-            echo "Add your 10-character Apple Developer Team ID as IOS_TEAM_ID."
-            exit 1
-          fi
-
-          if ! echo "$IOS_TEAM_ID" | grep -Eq '^[A-Z0-9]{10}$'; then
+          TEAM_ID="$IOS_TEAM_ID"
+          if [ -z "$TEAM_ID" ]; then
+            TEAM_ID="ABCDE12XYZ"
+            echo "::notice::IOS_TEAM_ID is not configured; using a placeholder Team ID for unsigned project-only validation."
+          elif ! echo "$TEAM_ID" | grep -Eq '^[A-Z0-9]{10}$'; then
             echo "::error::IOS_TEAM_ID must be a 10-character Apple Team ID."
             exit 1
           fi
+          echo "EXPORT_TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
 
-      - name: Download Godot
+      - name: Verify Xcode toolchain
         shell: bash
         run: |
-          curl -L             "https://downloads.godotengine.org/?flavor=stable&platform=macos.universal&slug=macos.universal.zip&version=$GODOT_VERSION"             -o godot.zip
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: Download Godot 4.7.2
+        shell: bash
+        run: |
+          curl -fL \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip" \
+            -o godot.zip
           unzip -q godot.zip -d godot
           GODOT_BIN="$(find godot -path '*/Contents/MacOS/Godot' -type f | head -n 1)"
           test -n "$GODOT_BIN"
           chmod +x "$GODOT_BIN"
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
 
-      - name: Install iOS export templates
+      - name: Install matching iOS export templates
         shell: bash
         run: |
-          curl -L             "https://downloads.godotengine.org/?flavor=stable&platform=templates&slug=export_templates.tpz&version=$GODOT_VERSION"             -o export_templates.tpz
+          curl -fL \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz" \
+            -o export_templates.tpz
 
           rm -rf templates_tmp
           mkdir templates_tmp
@@ -51,14 +67,12 @@ jobs:
 
           VERSION_FILE="$(find templates_tmp -name version.txt -type f | head -n 1)"
           test -n "$VERSION_FILE"
-
           TEMPLATE_DIR="$(dirname "$VERSION_FILE")"
           TEMPLATE_VERSION="$(cat "$VERSION_FILE")"
           DEST="$HOME/Library/Application Support/Godot/export_templates/$TEMPLATE_VERSION"
 
           mkdir -p "$DEST"
           cp -R "$TEMPLATE_DIR"/. "$DEST"/
-
           test -f "$DEST/ios.zip"
           echo "Installed export templates: $TEMPLATE_VERSION"
 
@@ -72,36 +86,129 @@ jobs:
 
           path = Path("export_presets.cfg")
           text = path.read_text()
-          text = text.replace("IOS_TEAM_ID", os.environ["IOS_TEAM_ID"])
+          text = text.replace("IOS_TEAM_ID", os.environ["EXPORT_TEAM_ID"])
           path.write_text(text)
           PY
 
-      - name: Import project
+      - name: Import Godot project
         shell: bash
         run: |
-          "$GODOT_BIN" --headless --editor --path . --quit
-
-      - name: Export Xcode project
-        shell: bash
-        run: |
-          mkdir -p build/ios
-          "$GODOT_BIN"             --headless             --path .             --export-release "iOS"             "$(pwd)/build/ios/ChronoExponent.zip"
-
-          echo "Export output:"
-          find build/ios -maxdepth 3 -type f -print
-
-      - name: Verify Xcode project exists
-        shell: bash
-        run: |
-          if ! find build/ios -type d -name '*.xcodeproj' -print -quit | grep -q . &&              ! unzip -l build/ios/ChronoExponent.zip 2>/dev/null | grep -q '.xcodeproj/'; then
-            echo "::error::Godot export did not produce an Xcode project."
+          set -o pipefail
+          "$GODOT_BIN" --headless --editor --path . --quit 2>&1 | tee godot-import.log
+          if grep -Eq "SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load script" godot-import.log; then
+            echo "::error::Godot import reported script errors."
             exit 1
           fi
 
-      - name: Upload iOS Xcode project
+      # Godot project-only export can return a non-zero status after writing
+      # a complete Xcode project, so validate the generated project itself.
+      - name: Export Xcode project
+        shell: bash
+        run: |
+          rm -rf build/ios
+          mkdir -p build/ios
+
+          set +e
+          set -o pipefail
+          "$GODOT_BIN" \
+            --headless \
+            --path . \
+            --export-release "iOS" \
+            "$(pwd)/build/ios/ChronoExponent.zip" 2>&1 | tee godot-ios-export.log
+          GODOT_EXPORT_STATUS=${PIPESTATUS[0]}
+          set -e
+
+          if grep -Eq "SCRIPT ERROR|Parse Error|Compile Error|Project export for preset .* failed|Export Icons: Invalid|Cannot export project" godot-ios-export.log; then
+            echo "::error::Godot iOS export reported a fatal error."
+            exit 1
+          fi
+
+          PROJECT="$(find build/ios -type d -name '*.xcodeproj' -print -quit)"
+          if [ -z "$PROJECT" ]; then
+            echo "::error::Godot export did not produce an Xcode project (Godot exit: $GODOT_EXPORT_STATUS)."
+            exit 1
+          fi
+
+          if [ "$GODOT_EXPORT_STATUS" -ne 0 ]; then
+            echo "::notice::Godot returned $GODOT_EXPORT_STATUS after project-only export, but a complete Xcode project was generated; continuing with Xcode validation."
+          fi
+
+          echo "XCODE_PROJECT=$PROJECT" >> "$GITHUB_ENV"
+          echo "Generated Xcode project: $PROJECT"
+
+      - name: Validate generated Xcode project
+        shell: bash
+        run: |
+          xcodebuild -project "$XCODE_PROJECT" -list -json > build/ios/xcode-list.json
+          cat build/ios/xcode-list.json
+
+          SCHEME="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("build/ios/xcode-list.json").read_text())
+          schemes = data.get("project", {}).get("schemes", [])
+          if not schemes:
+              raise SystemExit("No Xcode scheme found")
+          print(schemes[0])
+          PY
+          )"
+          test -n "$SCHEME"
+          echo "XCODE_SCHEME=$SCHEME" >> "$GITHUB_ENV"
+          echo "Using scheme: $SCHEME"
+
+      - name: Build unsigned iPhone app
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$(pwd)/build/ios/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM= \
+            build 2>&1 | tee build/ios/xcode-build.log
+
+          APP_PATH="$(find build/ios/DerivedData/Build/Products -type d -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::Unsigned Xcode build did not produce an .app bundle."
+            exit 1
+          fi
+          echo "IOS_APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          rm -rf build/ios/Payload
+          mkdir -p build/ios/Payload
+          ditto "$IOS_APP_PATH" "build/ios/Payload/$(basename "$IOS_APP_PATH")"
+          (cd build/ios && /usr/bin/zip -qry ChronoExponent-unsigned.ipa Payload)
+          test -s build/ios/ChronoExponent-unsigned.ipa
+          ls -lh build/ios/ChronoExponent-unsigned.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChronoExponent-unsigned-IPA
+          path: build/ios/ChronoExponent-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Archive generated Xcode project
+        shell: bash
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent             "$(dirname "$XCODE_PROJECT")"             build/ios/ChronoExponent-Xcode.zip
+          test -s build/ios/ChronoExponent-Xcode.zip
+
+      - name: Upload generated Xcode project
         uses: actions/upload-artifact@v4
         with:
           name: ChronoExponent-iOS-Xcode
-          path: build/ios/
+          path: |
+            build/ios/ChronoExponent-Xcode.zip
+            build/ios/xcode-list.json
+            build/ios/xcode-build.log
           if-no-files-found: error
           retention-days: 14

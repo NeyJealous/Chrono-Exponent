@@ -6,6 +6,7 @@ config_version=5
 [application]
 
 config/name="Chrono Exponent"
+config/icon="res://assets/app_icon.svg"
 run/main_scene="res://scenes/main.tscn"
 
 [display]
@@ -18,6 +19,7 @@ window/stretch/mode="canvas_items"
 
 [rendering]
 
+textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.025, 0.03, 0.055, 1)
