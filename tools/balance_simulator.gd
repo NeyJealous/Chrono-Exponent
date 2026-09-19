@@ -60,8 +60,6 @@ func _simulate_to_fracture(state: GameState) -> Dictionary:
 		if state.wave < previous_wave:
 			boss_failures += 1
 		previous_wave = state.wave
-		else:
-			previous_wave = state.wave
 
 		_record_milestones(
 			state,
