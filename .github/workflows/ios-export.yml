@@ -100,6 +100,7 @@ jobs:
             exit 1
           fi
 
+      # Project icon must be configured for iOS asset generation.
       - name: Export Xcode project
         shell: bash
         run: |
