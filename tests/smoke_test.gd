@@ -78,6 +78,10 @@ func _init() -> void:
 	_check(state.run_time == 0.0, "Fracture resets run time")
 	_check(state.run_damage == 0.0, "Fracture resets run damage")
 	_check(state.run_highest_wave == state.wave, "new run depth resets to start wave")
+	_check(
+		state.fracture_reward() == 0,
+		"global highest wave cannot be reused for immediate Fracture"
+	)
 
 	var tap_before_upgrade := state.tap_damage()
 	_check(
