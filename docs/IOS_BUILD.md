@@ -35,7 +35,7 @@ Godot 4.7 requires both an App Store Team ID and bundle identifier even when `ap
 For unsigned CI validation only, the workflow therefore uses:
 
 ```text
-AAAAAAAAAA
+ABCDE12XYZ
 ```
 
 when the repository secret `IOS_TEAM_ID` is absent.
@@ -138,7 +138,7 @@ The gates remain:
 Each stage must pass before the next stage is treated as stable.
 
 
-## Validated baseline — GitHub Actions run #9
+## Validated baseline — GitHub Actions run #13
 
 The unsigned pipeline has now completed successfully end-to-end.
 
@@ -146,13 +146,13 @@ Produced artifacts:
 
 | Artifact | Size | Purpose |
 |---|---:|---|
-| `ChronoExponent-unsigned-IPA` | 28,761,575 bytes | unsigned IPA for later re-signing |
-| `ChronoExponent-iOS-Xcode` | 413,978,686 bytes | generated Xcode project/build diagnostics |
+| `ChronoExponent-unsigned-IPA` | 28,796,462 bytes | unsigned IPA for later re-signing |
+| `ChronoExponent-iOS-Xcode` | 414,191,603 bytes | generated Xcode project/build diagnostics |
 
 IPA artifact SHA-256 digest reported by GitHub Actions:
 
 ```text
-f6b8f942668215d3120a89d5889885f0ad337e5080f797a6ef4d6ebc9a10f3dd
+8aa75d4462212cbe7cf5f02a2d167954b28b0521b372e7f1716c28e4119b6e5c
 ```
 
 This proves that the current project can be transformed on a GitHub-hosted macOS runner from Godot source into a real iPhoneOS application bundle and packaged IPA without local macOS hardware.
