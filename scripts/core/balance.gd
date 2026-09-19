@@ -108,9 +108,8 @@ static func weapon_max_affordable(level: int, budget: float) -> int:
 		budget
 	)
 
-static func tap_damage(level: int, fragments: float) -> float:
-	var permanent_multiplier := 1.0 + fragments * 0.10
-	return pow(WEAPON_DAMAGE_GROWTH, level) * permanent_multiplier
+static func tap_damage(level: int, _fragments: float) -> float:
+	return pow(WEAPON_DAMAGE_GROWTH, level)
 
 static func crit_chance(_weapon_level: int, _fragments: float) -> float:
 	return BASE_CRIT_CHANCE
@@ -150,12 +149,11 @@ static func unit_max_affordable(
 		budget
 	)
 
-static func unit_dps(unit_index: int, level: int, fragments: float) -> float:
+static func unit_dps(unit_index: int, level: int, _fragments: float) -> float:
 	if level <= 0:
 		return 0.0
 	var data: Dictionary = UNIT_DATA[unit_index]
-	var permanent_multiplier := 1.0 + fragments * 0.10
-	return float(data["base_dps"]) * pow(float(data["dps_growth"]), level - 1) * permanent_multiplier
+	return float(data["base_dps"]) * pow(float(data["dps_growth"]), level - 1)
 
 static func unit_attack_interval(unit_index: int) -> float:
 	return float(UNIT_DATA[unit_index]["attack_interval"])
