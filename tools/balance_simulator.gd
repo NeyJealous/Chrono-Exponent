@@ -49,6 +49,9 @@ func _simulate_to_fracture(state: GameState) -> Dictionary:
 
 	var previous_wave := state.wave
 
+	_record_milestones(state, 0.0, milestone_times)
+	_record_unit_unlocks(state, 0.0, unlock_times)
+
 	while elapsed < MAX_RUN_SECONDS and state.fracture_reward() <= 0:
 		state.tick(STEP)
 		elapsed += STEP
@@ -211,7 +214,7 @@ func _print_run_result(run_number: int, result: Dictionary) -> void:
 	)
 
 	var milestones: Dictionary = result["milestone_times"]
-	var milestone_parts: Array[String] = []
+	var milestone_parts := PackedStringArray()
 	for milestone in MILESTONES:
 		var key := str(milestone)
 		if milestones.has(key):
@@ -225,7 +228,7 @@ func _print_run_result(run_number: int, result: Dictionary) -> void:
 	print("  milestones: " + ", ".join(milestone_parts))
 
 	var unlocks: Dictionary = result["unlock_times"]
-	var unlock_parts: Array[String] = []
+	var unlock_parts := PackedStringArray()
 	for unit in Balance.UNIT_DATA:
 		var unit_id := String(unit["id"])
 		if unlocks.has(unit_id):
