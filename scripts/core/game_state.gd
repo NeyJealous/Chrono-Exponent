@@ -455,6 +455,8 @@ func add_offline_reward(seconds: float) -> float:
 
 	energy += reward
 	total_energy += reward
+	run_energy_earned += reward
+	run_time += capped_seconds
 	return reward
 
 func to_dict() -> Dictionary:
