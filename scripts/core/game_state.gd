@@ -190,26 +190,58 @@ func can_buy_weapon() -> bool:
 	return energy >= Balance.weapon_cost(weapon_level)
 
 func buy_weapon() -> bool:
-	var cost := Balance.weapon_cost(weapon_level)
-	if energy < cost:
-		return false
+	return buy_weapon_amount(1) > 0
+
+func buy_weapon_amount(quantity: int) -> int:
+	var levels := quantity
+	if quantity <= 0:
+		levels = Balance.weapon_max_affordable(weapon_level, energy)
+
+	if levels <= 0:
+		return 0
+
+	var cost := Balance.weapon_bulk_cost(weapon_level, levels)
+	if cost > energy:
+		return 0
+
 	energy -= cost
-	weapon_level += 1
-	return true
+	weapon_level += levels
+	return levels
 
 func can_buy_unit(index: int) -> bool:
 	if index < 0 or index >= unit_levels.size():
 		return false
+	if not Balance.unit_is_unlocked(index, highest_wave):
+		return false
 	return energy >= Balance.unit_cost(index, unit_levels[index])
 
 func buy_unit(index: int) -> bool:
-	if not can_buy_unit(index):
-		return false
+	return buy_unit_amount(index, 1) > 0
 
-	var cost := Balance.unit_cost(index, unit_levels[index])
+func buy_unit_amount(index: int, quantity: int) -> int:
+	if index < 0 or index >= unit_levels.size():
+		return 0
+	if not Balance.unit_is_unlocked(index, highest_wave):
+		return 0
+
+	var levels := quantity
+	if quantity <= 0:
+		levels = Balance.unit_max_affordable(
+			index,
+			unit_levels[index],
+			energy
+		)
+
+	if levels <= 0:
+		return 0
+
+	var cost := Balance.unit_bulk_cost(index, unit_levels[index], levels)
+	if cost > energy:
+		return 0
+
 	energy -= cost
-	unit_levels[index] += 1
-	return true
+	unit_levels[index] += levels
+	return levels
 
 func fracture_reward() -> int:
 	return Balance.fracture_reward(highest_wave)
