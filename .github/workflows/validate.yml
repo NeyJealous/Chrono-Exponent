@@ -24,16 +24,16 @@ jobs:
           sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
 
       - name: Import project
-        run: timeout 60s godot --headless --editor --path . --quit
+        run: bash tools/run_godot_ci.sh 60 --headless --editor --path . --quit
 
       - name: Gameplay smoke test
-        run: timeout 60s godot --headless --path . -s res://tests/smoke_test.gd
+        run: bash tools/run_godot_ci.sh 60 --headless --path . -s res://tests/smoke_test.gd
 
       - name: Save migration tests
-        run: timeout 60s godot --headless --path . -s res://tests/save_migration_test.gd
+        run: bash tools/run_godot_ci.sh 60 --headless --path . -s res://tests/save_migration_test.gd
 
       - name: Balance simulation
-        run: timeout 180s godot --headless --path . -s res://tools/balance_simulator.gd
+        run: bash tools/run_godot_ci.sh 180 --headless --path . -s res://tools/balance_simulator.gd
 
       - name: Boot main scene
-        run: timeout 60s godot --headless --path . --quit-after 2
+        run: bash tools/run_godot_ci.sh 60 --headless --path . --quit-after 2
