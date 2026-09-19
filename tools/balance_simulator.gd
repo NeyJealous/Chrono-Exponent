@@ -62,7 +62,7 @@ func _simulate_to_fracture(state: GameState) -> Dictionary:
 
 	return {
 		"seconds": elapsed,
-		"wave": state.highest_wave,
+		"wave": state.run_highest_wave,
 		"reward": state.fracture_reward()
 	}
 
