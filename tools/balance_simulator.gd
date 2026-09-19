@@ -33,6 +33,7 @@ func _init() -> void:
 			return
 
 		state.fracture()
+		_spend_fragments(state)
 
 	print("=== End baseline ===")
 	quit(0)
@@ -96,6 +97,33 @@ func _spend_energy(state: GameState) -> void:
 		else:
 			if not state.buy_unit(best_index):
 				return
+
+func _spend_fragments(state: GameState) -> void:
+	for _attempt in 128:
+		var best_node_id := ""
+		var best_cost := 2147483647
+
+		for node in FractureTree.NODES:
+			var node_id := String(node["id"])
+			if FractureTree.is_maxed(
+				state.fracture_upgrades,
+				node_id
+			):
+				continue
+
+			var cost := FractureTree.cost(
+				state.fracture_upgrades,
+				node_id
+			)
+			if cost > 0 and cost < best_cost:
+				best_cost = cost
+				best_node_id = node_id
+
+		if best_node_id.is_empty() or state.fragments < best_cost:
+			return
+
+		if not state.buy_fracture_upgrade(best_node_id):
+			return
 
 func _format_time(seconds: float) -> String:
 	var total := int(round(seconds))
