@@ -604,8 +604,9 @@ func load_dict(data: Dictionary) -> float:
 		1,
 		max(1, run_highest_wave)
 	)
-	if progression_mode == PROGRESSION_FARM and Balance.is_boss(farm_wave):
-		farm_wave = max(1, farm_wave - 1)
+	if progression_mode == PROGRESSION_FARM:
+		if Balance.is_boss(farm_wave):
+			farm_wave = max(1, farm_wave - 1)
 		wave = farm_wave
 
 	unit_attack_timers = [0.0, 0.0, 0.0]
