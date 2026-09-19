@@ -10,7 +10,10 @@ var offline_label: Label
 var event_label: Label
 var weapon_button: Button
 var unit_buttons: Array[Button] = []
+var purchase_mode_buttons: Array[Button] = []
 var fracture_button: Button
+
+var purchase_amount := 1
 
 var target_cards: Array[VBoxContainer] = []
 var target_buttons: Array[Button] = []
@@ -148,6 +151,21 @@ func _build_ui() -> void:
 	stats_label.add_theme_font_size_override("font_size", 21)
 	arena.add_child(stats_label)
 
+	var purchase_modes := HBoxContainer.new()
+	purchase_modes.alignment = BoxContainer.ALIGNMENT_CENTER
+	purchase_modes.add_theme_constant_override("separation", 6)
+	root.add_child(purchase_modes)
+
+	var mode_values := [1, 10, 25, 0]
+	var mode_names := ["×1", "×10", "×25", "MAX"]
+	for i in mode_values.size():
+		var mode_button := Button.new()
+		mode_button.text = mode_names[i]
+		mode_button.custom_minimum_size = Vector2(90, 44)
+		mode_button.pressed.connect(_on_purchase_mode_pressed.bind(mode_values[i]))
+		purchase_modes.add_child(mode_button)
+		purchase_mode_buttons.append(mode_button)
+
 	var purchases := HBoxContainer.new()
 	purchases.add_theme_constant_override("separation", 8)
 	root.add_child(purchases)
@@ -181,12 +199,16 @@ func _on_target_pressed(slot_index: int) -> void:
 	state.fire_at(slot_index)
 	_update_ui()
 
+func _on_purchase_mode_pressed(amount: int) -> void:
+	purchase_amount = amount
+	_update_ui()
+
 func _on_weapon_pressed() -> void:
-	state.buy_weapon()
+	state.buy_weapon_amount(purchase_amount)
 	_update_ui()
 
 func _on_unit_pressed(index: int) -> void:
-	state.buy_unit(index)
+	state.buy_unit_amount(index, purchase_amount)
 	_update_ui()
 
 func _on_fracture_pressed() -> void:
@@ -357,22 +379,59 @@ func _update_ui() -> void:
 		Balance.format_number(state.fragments)
 	]
 
-	var weapon_cost := Balance.weapon_cost(state.weapon_level)
-	weapon_button.text = "GUN Lv.%d\n%s" % [
+	for i in purchase_mode_buttons.size():
+		var values := [1, 10, 25, 0]
+		purchase_mode_buttons[i].disabled = purchase_amount == values[i]
+
+	var weapon_levels := purchase_amount
+	if purchase_amount <= 0:
+		weapon_levels = Balance.weapon_max_affordable(
+			state.weapon_level,
+			state.energy
+		)
+	var weapon_cost := Balance.weapon_bulk_cost(
 		state.weapon_level,
+		weapon_levels
+	)
+	weapon_button.text = "GUN Lv.%d  +%d\n%s" % [
+		state.weapon_level,
+		weapon_levels,
 		Balance.format_number(weapon_cost)
 	]
-	weapon_button.disabled = state.energy < weapon_cost
+	weapon_button.disabled = weapon_levels <= 0 or state.energy < weapon_cost
 
 	for i in unit_buttons.size():
 		var data: Dictionary = Balance.UNIT_DATA[i]
-		var cost := Balance.unit_cost(i, state.unit_levels[i])
-		unit_buttons[i].text = "%s Lv.%d\n%s" % [
+		var unlocked := Balance.unit_is_unlocked(i, state.highest_wave)
+
+		if not unlocked:
+			unit_buttons[i].text = "%s\nUNLOCK WAVE %d" % [
+				String(data["name"]),
+				Balance.unit_unlock_wave(i)
+			]
+			unit_buttons[i].disabled = true
+			continue
+
+		var unit_levels := purchase_amount
+		if purchase_amount <= 0:
+			unit_levels = Balance.unit_max_affordable(
+				i,
+				state.unit_levels[i],
+				state.energy
+			)
+
+		var cost := Balance.unit_bulk_cost(
+			i,
+			state.unit_levels[i],
+			unit_levels
+		)
+		unit_buttons[i].text = "%s Lv.%d  +%d\n%s" % [
 			String(data["name"]),
 			state.unit_levels[i],
+			unit_levels,
 			Balance.format_number(cost)
 		]
-		unit_buttons[i].disabled = state.energy < cost
+		unit_buttons[i].disabled = unit_levels <= 0 or state.energy < cost
 
 	var reward := state.fracture_reward()
 	if reward > 0:
