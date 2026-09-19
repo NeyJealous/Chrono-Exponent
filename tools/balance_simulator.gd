@@ -6,24 +6,19 @@ const BUY_INTERVAL := 0.25
 const MAX_RUN_SECONDS := 7200.0
 const RUN_COUNT := 3
 
+const MILESTONES := [10, 25, 50, 75, 100]
+
 func _init() -> void:
 	var state := GameState.new()
+	var results: Array = []
 
 	print("=== Chrono Exponent balance baseline ===")
 	print("Strategy: 4 taps/sec + buy cheapest available upgrade")
 
 	for run_index in RUN_COUNT:
 		var result := _simulate_to_fracture(state)
-		print(
-			"Run %d | time %s | wave %d | fragments +%d | gun %d | units %s" % [
-				run_index + 1,
-				_format_time(float(result["seconds"])),
-				int(result["wave"]),
-				int(result["reward"]),
-				state.weapon_level,
-				str(state.unit_levels)
-			]
-		)
+		results.append(result)
+		_print_run_result(run_index + 1, result)
 
 		if int(result["reward"]) <= 0:
 			push_error(
@@ -35,6 +30,9 @@ func _init() -> void:
 		state.fracture()
 		_spend_fragments(state)
 
+	_print_acceleration(results)
+	_validate_guardrails(results)
+
 	print("=== End baseline ===")
 	quit(0)
 
@@ -43,8 +41,34 @@ func _simulate_to_fracture(state: GameState) -> Dictionary:
 	var tap_timer := 0.0
 	var buy_timer := 0.0
 
+	var milestone_times: Dictionary = {}
+	var unlock_times: Dictionary = {}
+	var boss_failures := 0
+	var last_purchase_time := 0.0
+	var longest_purchase_drought := 0.0
+
+	var previous_wave := state.wave
+
 	while elapsed < MAX_RUN_SECONDS and state.fracture_reward() <= 0:
 		state.tick(STEP)
+		elapsed += STEP
+
+		if state.wave < previous_wave:
+			boss_failures += 1
+		previous_wave = state.wave
+		else:
+			previous_wave = state.wave
+
+		_record_milestones(
+			state,
+			elapsed,
+			milestone_times
+		)
+		_record_unit_unlocks(
+			state,
+			elapsed,
+			unlock_times
+		)
 
 		tap_timer += STEP
 		while tap_timer >= TAP_INTERVAL:
@@ -56,17 +80,62 @@ func _simulate_to_fracture(state: GameState) -> Dictionary:
 		buy_timer += STEP
 		if buy_timer >= BUY_INTERVAL:
 			buy_timer = 0.0
-			_spend_energy(state)
 
-		elapsed += STEP
+			if _spend_energy(state):
+				longest_purchase_drought = max(
+					longest_purchase_drought,
+					elapsed - last_purchase_time
+				)
+				last_purchase_time = elapsed
+
+	longest_purchase_drought = max(
+		longest_purchase_drought,
+		elapsed - last_purchase_time
+	)
 
 	return {
 		"seconds": elapsed,
 		"wave": state.run_highest_wave,
-		"reward": state.fracture_reward()
+		"reward": state.fracture_reward(),
+		"gun_level": state.weapon_level,
+		"unit_levels": state.unit_levels.duplicate(),
+		"milestone_times": milestone_times,
+		"unlock_times": unlock_times,
+		"boss_failures": boss_failures,
+		"longest_purchase_drought": longest_purchase_drought
 	}
 
-func _spend_energy(state: GameState) -> void:
+func _record_milestones(
+	state: GameState,
+	elapsed: float,
+	times: Dictionary
+) -> void:
+	for milestone in MILESTONES:
+		var key := str(milestone)
+		if times.has(key):
+			continue
+		if state.run_highest_wave >= milestone:
+			times[key] = elapsed
+
+func _record_unit_unlocks(
+	state: GameState,
+	elapsed: float,
+	times: Dictionary
+) -> void:
+	for unit_index in Balance.UNIT_DATA.size():
+		var unit_id := String(Balance.UNIT_DATA[unit_index]["id"])
+		if times.has(unit_id):
+			continue
+
+		if Balance.unit_is_unlocked(
+			unit_index,
+			state.highest_wave
+		):
+			times[unit_id] = elapsed
+
+func _spend_energy(state: GameState) -> bool:
+	var bought_anything := false
+
 	for _attempt in 32:
 		var best_kind := "weapon"
 		var best_index := -1
@@ -89,14 +158,18 @@ func _spend_energy(state: GameState) -> void:
 				best_index = unit_index
 
 		if state.energy < best_cost:
-			return
+			return bought_anything
 
 		if best_kind == "weapon":
 			if not state.buy_weapon():
-				return
+				return bought_anything
 		else:
 			if not state.buy_unit(best_index):
-				return
+				return bought_anything
+
+		bought_anything = true
+
+	return bought_anything
 
 func _spend_fragments(state: GameState) -> void:
 	for _attempt in 128:
@@ -125,8 +198,112 @@ func _spend_fragments(state: GameState) -> void:
 		if not state.buy_fracture_upgrade(best_node_id):
 			return
 
+func _print_run_result(run_number: int, result: Dictionary) -> void:
+	print(
+		"Run %d | time %s | wave %d | fragments +%d | gun %d | units %s" % [
+			run_number,
+			_format_time(float(result["seconds"])),
+			int(result["wave"]),
+			int(result["reward"]),
+			int(result["gun_level"]),
+			str(result["unit_levels"])
+		]
+	)
+
+	var milestones: Dictionary = result["milestone_times"]
+	var milestone_parts: Array[String] = []
+	for milestone in MILESTONES:
+		var key := str(milestone)
+		if milestones.has(key):
+			milestone_parts.append(
+				"W%d=%s" % [
+					milestone,
+					_format_time(float(milestones[key]))
+				]
+			)
+
+	print("  milestones: " + ", ".join(milestone_parts))
+
+	var unlocks: Dictionary = result["unlock_times"]
+	var unlock_parts: Array[String] = []
+	for unit in Balance.UNIT_DATA:
+		var unit_id := String(unit["id"])
+		if unlocks.has(unit_id):
+			unlock_parts.append(
+				"%s=%s" % [
+					String(unit["name"]),
+					_format_time(float(unlocks[unit_id]))
+				]
+			)
+
+	print("  unlocks: " + ", ".join(unlock_parts))
+	print(
+		"  boss failures: %d | longest purchase drought: %s" % [
+			int(result["boss_failures"]),
+			_format_time(float(result["longest_purchase_drought"]))
+		]
+	)
+
+func _print_acceleration(results: Array) -> void:
+	if results.size() < 2:
+		return
+
+	print("=== Run acceleration ===")
+
+	for i in range(1, results.size()):
+		var previous := float(results[i - 1]["seconds"])
+		var current := float(results[i]["seconds"])
+
+		if previous <= 0.0:
+			continue
+
+		var speedup := previous / max(current, 0.001)
+		var reduction := (1.0 - current / previous) * 100.0
+
+		print(
+			"Run %d → %d | %.2fx speed | %.1f%% less time" % [
+				i,
+				i + 1,
+				speedup,
+				reduction
+			]
+		)
+
+func _validate_guardrails(results: Array) -> void:
+	if results.is_empty():
+		return
+
+	var first_seconds := float(results[0]["seconds"])
+
+	if first_seconds < 1200.0 or first_seconds > 4800.0:
+		push_warning(
+			"First Fracture is outside the broad 20–80 minute guardrail: %s" %
+			_format_time(first_seconds)
+		)
+
+	if first_seconds < 1800.0 or first_seconds > 3600.0:
+		push_warning(
+			"First Fracture is outside the preferred 30–60 minute target."
+		)
+
+	for i in range(1, results.size()):
+		var previous := float(results[i - 1]["seconds"])
+		var current := float(results[i]["seconds"])
+
+		if current > previous:
+			push_warning(
+				"Run %d is slower than Run %d; prestige upgrades need review." % [
+					i + 1,
+					i
+				]
+			)
+
 func _format_time(seconds: float) -> String:
 	var total := int(round(seconds))
-	var minutes := int(total / 60)
+	var hours := int(total / 3600)
+	var minutes := int((total % 3600) / 60)
 	var remaining := total % 60
+
+	if hours > 0:
+		return "%02d:%02d:%02d" % [hours, minutes, remaining]
 	return "%02d:%02d" % [minutes, remaining]
