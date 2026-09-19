@@ -65,7 +65,7 @@ func _test_v2_to_current() -> void:
 
 func _test_v3_to_current() -> void:
 	var legacy := {
-		"save_version": 4,
+		"save_version": 3,
 		"wave": 42,
 		"highest_wave": 120,
 		"fracture_upgrades": {"residual_caliber": 2},
@@ -95,7 +95,7 @@ func _test_v3_to_current() -> void:
 
 func _test_normalization() -> void:
 	var malformed := {
-		"save_version": 3,
+		"save_version": 4,
 		"wave": -5,
 		"highest_wave": -1,
 		"energy": -100.0,
