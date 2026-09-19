@@ -1,0 +1,107 @@
+name: iOS Xcode Export
+
+on:
+  workflow_dispatch:
+
+jobs:
+  export-xcode-project:
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    env:
+      GODOT_VERSION: "4.7.2"
+      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Apple Team ID secret
+        shell: bash
+        run: |
+          if [ -z "$IOS_TEAM_ID" ]; then
+            echo "::error::Repository secret IOS_TEAM_ID is not configured."
+            echo "Add your 10-character Apple Developer Team ID as IOS_TEAM_ID."
+            exit 1
+          fi
+
+          if ! echo "$IOS_TEAM_ID" | grep -Eq '^[A-Z0-9]{10}$'; then
+            echo "::error::IOS_TEAM_ID must be a 10-character Apple Team ID."
+            exit 1
+          fi
+
+      - name: Download Godot
+        shell: bash
+        run: |
+          curl -L             "https://downloads.godotengine.org/?flavor=stable&platform=macos.universal&slug=macos.universal.zip&version=$GODOT_VERSION"             -o godot.zip
+          unzip -q godot.zip -d godot
+          GODOT_BIN="$(find godot -path '*/Contents/MacOS/Godot' -type f | head -n 1)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Install iOS export templates
+        shell: bash
+        run: |
+          curl -L             "https://downloads.godotengine.org/?flavor=stable&platform=templates&slug=export_templates.tpz&version=$GODOT_VERSION"             -o export_templates.tpz
+
+          rm -rf templates_tmp
+          mkdir templates_tmp
+          unzip -q export_templates.tpz -d templates_tmp
+
+          VERSION_FILE="$(find templates_tmp -name version.txt -type f | head -n 1)"
+          test -n "$VERSION_FILE"
+
+          TEMPLATE_DIR="$(dirname "$VERSION_FILE")"
+          TEMPLATE_VERSION="$(cat "$VERSION_FILE")"
+          DEST="$HOME/Library/Application Support/Godot/export_templates/$TEMPLATE_VERSION"
+
+          mkdir -p "$DEST"
+          cp -R "$TEMPLATE_DIR"/. "$DEST"/
+
+          test -f "$DEST/ios.zip"
+          echo "Installed export templates: $TEMPLATE_VERSION"
+
+      - name: Prepare iOS export preset
+        shell: bash
+        run: |
+          cp export_presets.ios.example export_presets.cfg
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path("export_presets.cfg")
+          text = path.read_text()
+          text = text.replace("IOS_TEAM_ID", os.environ["IOS_TEAM_ID"])
+          path.write_text(text)
+          PY
+
+      - name: Import project
+        shell: bash
+        run: |
+          "$GODOT_BIN" --headless --editor --path . --quit
+
+      - name: Export Xcode project
+        shell: bash
+        run: |
+          mkdir -p build/ios
+          "$GODOT_BIN"             --headless             --path .             --export-release "iOS"             "$(pwd)/build/ios/ChronoExponent.zip"
+
+          echo "Export output:"
+          find build/ios -maxdepth 3 -type f -print
+
+      - name: Verify Xcode project exists
+        shell: bash
+        run: |
+          if ! find build/ios -type d -name '*.xcodeproj' -print -quit | grep -q . &&              ! unzip -l build/ios/ChronoExponent.zip 2>/dev/null | grep -q '.xcodeproj/'; then
+            echo "::error::Godot export did not produce an Xcode project."
+            exit 1
+          fi
+
+      - name: Upload iOS Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChronoExponent-iOS-Xcode
+          path: build/ios/
+          if-no-files-found: error
+          retention-days: 14
