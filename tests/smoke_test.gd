@@ -55,10 +55,33 @@ func _init() -> void:
 		)
 
 	state.highest_wave = 100
+	state.run_highest_wave = 100
+	state.run_time = 123.0
+	state.run_damage = 4567.0
+	state.run_energy_earned = 890.0
+	state.run_kills = 77
+	state.run_crits = 12
+	state.run_bosses = 9
+
+	var preview := state.current_run_summary()
+	_check(int(preview["highest_wave"]) == 100, "run summary records run depth")
+	_check(int(preview["fragment_reward"]) > 0, "run summary previews Fragments")
+
 	var fragments_before := state.fragments
 	_check(state.fracture(), "Fracture is available at Wave 100")
 	_check(state.wave == 1, "Fracture resets current wave")
 	_check(state.fragments > fragments_before, "Fracture awards Fragments")
+	_check(
+		int(state.last_fracture_summary.get("highest_wave", 0)) == 100,
+		"Fracture preserves the completed run summary"
+	)
+	_check(state.run_time == 0.0, "Fracture resets run time")
+	_check(state.run_damage == 0.0, "Fracture resets run damage")
+	_check(state.run_highest_wave == state.wave, "new run depth resets to start wave")
+	_check(
+		state.fracture_reward() == 0,
+		"global highest wave cannot be reused for immediate Fracture"
+	)
 
 	var tap_before_upgrade := state.tap_damage()
 	_check(

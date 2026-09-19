@@ -18,6 +18,11 @@ var fracture_tree_overlay: ColorRect
 var fracture_tree_fragments_label: Label
 var fracture_node_buttons: Dictionary = {}
 
+var fracture_confirm_overlay: ColorRect
+var fracture_confirm_summary_label: Label
+var fracture_result_overlay: ColorRect
+var fracture_result_summary_label: Label
+
 var purchase_amount := 1
 
 var target_cards: Array[VBoxContainer] = []
@@ -45,7 +50,14 @@ func _ready() -> void:
 	_update_ui()
 
 func _process(delta: float) -> void:
-	state.tick(delta)
+	var fracture_modal_open := (
+		(fracture_confirm_overlay != null and fracture_confirm_overlay.visible) or
+		(fracture_result_overlay != null and fracture_result_overlay.visible)
+	)
+
+	if not fracture_modal_open:
+		state.tick(delta)
+
 	save_accumulator += delta
 
 	if event_message_time > 0.0:
@@ -66,6 +78,7 @@ func _notification(what: int) -> void:
 func _connect_game_signals() -> void:
 	state.damage_dealt.connect(_on_damage_dealt)
 	state.enemy_destroyed.connect(_on_enemy_destroyed)
+	state.fracture_completed.connect(_on_fracture_completed)
 	state.wave_completed.connect(_on_wave_completed)
 	state.boss_failed.connect(_on_boss_failed)
 
@@ -212,6 +225,7 @@ func _build_ui() -> void:
 	add_child(effects_layer)
 
 	_build_fracture_tree_overlay()
+	_build_fracture_dialogs()
 
 func _build_fracture_tree_overlay() -> void:
 	fracture_tree_overlay = ColorRect.new()
@@ -303,6 +317,195 @@ func _build_fracture_tree_overlay() -> void:
 			branch_box.add_child(node_button)
 			fracture_node_buttons[node_id] = node_button
 
+func _build_fracture_dialogs() -> void:
+	fracture_confirm_overlay = ColorRect.new()
+	fracture_confirm_overlay.color = Color(0.012, 0.016, 0.032, 0.975)
+	fracture_confirm_overlay.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	fracture_confirm_overlay.visible = false
+	add_child(fracture_confirm_overlay)
+
+	var confirm_center := CenterContainer.new()
+	confirm_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fracture_confirm_overlay.add_child(confirm_center)
+
+	var confirm_box := VBoxContainer.new()
+	confirm_box.custom_minimum_size = Vector2(760, 0)
+	confirm_box.add_theme_constant_override("separation", 18)
+	confirm_center.add_child(confirm_box)
+
+	var confirm_title := Label.new()
+	confirm_title.text = "FRACTURE TIMELINE?"
+	confirm_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	confirm_title.add_theme_font_size_override("font_size", 38)
+	confirm_box.add_child(confirm_title)
+
+	var warning := Label.new()
+	warning.text = (
+		"This ends the current run and resets Energy, Weapon and Team levels."
+	)
+	warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	warning.add_theme_font_size_override("font_size", 18)
+	confirm_box.add_child(warning)
+
+	fracture_confirm_summary_label = Label.new()
+	fracture_confirm_summary_label.horizontal_alignment = (
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	fracture_confirm_summary_label.add_theme_font_size_override(
+		"font_size",
+		24
+	)
+	confirm_box.add_child(fracture_confirm_summary_label)
+
+	var confirm_actions := HBoxContainer.new()
+	confirm_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	confirm_actions.add_theme_constant_override("separation", 18)
+	confirm_box.add_child(confirm_actions)
+
+	var cancel_button := Button.new()
+	cancel_button.text = "CANCEL"
+	cancel_button.custom_minimum_size = Vector2(220, 62)
+	cancel_button.pressed.connect(_on_fracture_cancel_pressed)
+	confirm_actions.add_child(cancel_button)
+
+	var confirm_button := Button.new()
+	confirm_button.text = "CONFIRM FRACTURE"
+	confirm_button.custom_minimum_size = Vector2(300, 62)
+	confirm_button.pressed.connect(_on_fracture_confirm_pressed)
+	confirm_actions.add_child(confirm_button)
+
+	fracture_result_overlay = ColorRect.new()
+	fracture_result_overlay.color = Color(0.012, 0.016, 0.032, 0.985)
+	fracture_result_overlay.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	fracture_result_overlay.visible = false
+	add_child(fracture_result_overlay)
+
+	var result_center := CenterContainer.new()
+	result_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fracture_result_overlay.add_child(result_center)
+
+	var result_box := VBoxContainer.new()
+	result_box.custom_minimum_size = Vector2(760, 0)
+	result_box.add_theme_constant_override("separation", 18)
+	result_center.add_child(result_box)
+
+	var result_title := Label.new()
+	result_title.text = "TIMELINE FRACTURED"
+	result_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_title.add_theme_font_size_override("font_size", 40)
+	result_box.add_child(result_title)
+
+	fracture_result_summary_label = Label.new()
+	fracture_result_summary_label.horizontal_alignment = (
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	fracture_result_summary_label.add_theme_font_size_override(
+		"font_size",
+		24
+	)
+	result_box.add_child(fracture_result_summary_label)
+
+	var result_actions := HBoxContainer.new()
+	result_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	result_actions.add_theme_constant_override("separation", 18)
+	result_box.add_child(result_actions)
+
+	var continue_button := Button.new()
+	continue_button.text = "CONTINUE"
+	continue_button.custom_minimum_size = Vector2(220, 62)
+	continue_button.pressed.connect(_on_fracture_result_continue_pressed)
+	result_actions.add_child(continue_button)
+
+	var tree_after_button := Button.new()
+	tree_after_button.text = "OPEN FRACTURE TREE"
+	tree_after_button.custom_minimum_size = Vector2(320, 62)
+	tree_after_button.pressed.connect(_on_fracture_result_tree_pressed)
+	result_actions.add_child(tree_after_button)
+
+
+func _format_duration(seconds_value: float) -> String:
+	var total_seconds: int = max(0, int(round(seconds_value)))
+	var hours: int = int(total_seconds / 3600)
+	var minutes: int = int((total_seconds % 3600) / 60)
+	var seconds: int = total_seconds % 60
+
+	if hours > 0:
+		return "%02d:%02d:%02d" % [hours, minutes, seconds]
+	return "%02d:%02d" % [minutes, seconds]
+
+
+func _run_summary_text(summary: Dictionary, completed: bool) -> String:
+	var reward := int(summary.get("fragment_reward", 0))
+	var reward_line := (
+		"+%d FRAGMENTS EARNED" % reward
+		if completed
+		else "+%d FRAGMENTS ON FRACTURE" % reward
+	)
+
+	return (
+		"RUN TIME   %s\n" +
+		"WAVE   %d → %d\n" +
+		"DAMAGE   %s\n" +
+		"ENERGY EARNED   %s\n" +
+		"KILLS   %d     BOSSES   %d     CRITS   %d\n\n" +
+		reward_line
+	) % [
+		_format_duration(float(summary.get("run_time", 0.0))),
+		int(summary.get("start_wave", 1)),
+		int(summary.get("highest_wave", 1)),
+		Balance.format_number(float(summary.get("damage", 0.0))),
+		Balance.format_number(float(summary.get("energy_earned", 0.0))),
+		int(summary.get("kills", 0)),
+		int(summary.get("bosses", 0)),
+		int(summary.get("crits", 0))
+	]
+
+
+func _show_fracture_confirmation() -> void:
+	if not state.can_fracture():
+		return
+
+	_set_tree_visible(false)
+	fracture_confirm_summary_label.text = _run_summary_text(
+		state.current_run_summary(),
+		false
+	)
+	fracture_confirm_overlay.visible = true
+
+
+func _on_fracture_cancel_pressed() -> void:
+	fracture_confirm_overlay.visible = false
+
+
+func _on_fracture_confirm_pressed() -> void:
+	if not state.fracture():
+		fracture_confirm_overlay.visible = false
+		return
+
+	SaveSystem.save_game(state)
+	_update_ui()
+
+
+func _on_fracture_completed(summary: Dictionary) -> void:
+	fracture_confirm_overlay.visible = false
+	fracture_result_summary_label.text = _run_summary_text(summary, true)
+	fracture_result_overlay.visible = true
+	_show_event("FRACTURE COMPLETE")
+
+
+func _on_fracture_result_continue_pressed() -> void:
+	fracture_result_overlay.visible = false
+
+
+func _on_fracture_result_tree_pressed() -> void:
+	fracture_result_overlay.visible = false
+	_set_tree_visible(true)
+
+
 func _update_fracture_tree_ui() -> void:
 	if fracture_tree_overlay == null:
 		return
@@ -361,11 +564,7 @@ func _on_unit_pressed(index: int) -> void:
 	_update_ui()
 
 func _on_fracture_pressed() -> void:
-	if state.fracture():
-		_show_event("FRACTURE COMPLETE")
-		SaveSystem.save_game(state)
-		_set_tree_visible(true)
-	_update_ui()
+	_show_fracture_confirmation()
 
 func _on_tree_pressed() -> void:
 	_set_tree_visible(not fracture_tree_overlay.visible)

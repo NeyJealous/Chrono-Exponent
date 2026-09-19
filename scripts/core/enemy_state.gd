@@ -55,18 +55,18 @@ func apply_damage(amount: float) -> float:
 	if amount <= 0.0 or not is_alive():
 		return 0.0
 
-	var remaining := amount
-	var applied := 0.0
+	var remaining: float = amount
+	var applied: float = 0.0
 
 	if shield > 0.0:
-		var shield_damage := min(shield, remaining)
+		var shield_damage: float = min(shield, remaining)
 		shield -= shield_damage
 		remaining -= shield_damage
 		applied += shield_damage
 
 	if remaining > 0.0 and hp > 0.0:
-		var effective := remaining * (1.0 - armor_reduction)
-		var health_damage := min(hp, effective)
+		var effective: float = remaining * (1.0 - armor_reduction)
+		var health_damage: float = min(hp, effective)
 		hp -= health_damage
 		applied += health_damage
 
