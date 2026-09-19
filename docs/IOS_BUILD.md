@@ -2,9 +2,9 @@
 
 Chrono Exponent is developed on Windows/GitHub and exported for iOS on a GitHub-hosted macOS runner.
 
-## Current stage
+## Current pipeline design
 
-The repository currently supports **project-only iOS export**:
+The pipeline is deliberately split into two signing-independent stages:
 
 ```text
 Godot project
@@ -15,83 +15,124 @@ Godot iOS exporter
    ↓
 Xcode project
    ↓
-GitHub Artifact
+xcodebuild with code signing disabled
+   ↓
+unsigned .app
+   ↓
+Payload packaging
+   ↓
+unsigned .ipa
 ```
 
-This stage intentionally does **not** create a signed IPA yet.
+The unsigned IPA is a **build artifact, not a directly installable signed application**.
 
-The goal is to prove that the Godot project can be exported cleanly to Apple's Xcode project format before adding certificates and provisioning profiles.
+It can later be re-signed by a supported sideloading workflow or replaced by a properly signed archive once Apple signing credentials are configured.
 
-## Required repository secret
+## Why a Team ID placeholder is used
 
-Create this GitHub Actions secret:
+Godot 4.7 requires both an App Store Team ID and bundle identifier even when `application/export_project_only=true`. The exporter rejects a blank Team ID.
+
+For unsigned CI validation only, the workflow therefore uses:
 
 ```text
-IOS_TEAM_ID
+AAAAAAAAAA
 ```
 
-Value: the 10-character Apple Developer Team ID associated with the Apple account used for signing.
+when the repository secret `IOS_TEAM_ID` is absent.
 
-The workflow refuses to run without it.
+That placeholder exists only to let Godot generate the Xcode project. The subsequent Xcode build explicitly uses:
 
-## Provisional bundle identifier
+```text
+CODE_SIGNING_ALLOWED=NO
+CODE_SIGNING_REQUIRED=NO
+DEVELOPMENT_TEAM=
+```
 
-Current development bundle identifier:
+so the placeholder is not treated as a real signing identity.
+
+If `IOS_TEAM_ID` exists, it must be a 10-character alphanumeric Apple Team ID and is inserted into the generated project instead.
+
+## Bundle identifier
+
+Current development identifier:
 
 ```text
 com.neyjealous.chronoexponent
 ```
 
-This is provisional. Before signed device distribution, it must match the App ID / provisioning setup used in the Apple Developer account.
+Before normal Apple-signed device distribution, it must match the App ID/provisioning configuration used by the signing account.
 
-## Run the export
+## Automated validation
 
-GitHub:
+The workflow is:
 
 ```text
-Actions
-→ iOS Xcode Export
-→ Run workflow
+.github/workflows/ios-export.yml
 ```
 
-The workflow:
+It runs:
 
-1. checks out the project;
-2. downloads Godot 4.7.2 for macOS;
-3. installs the matching iOS export templates;
-4. injects `IOS_TEAM_ID` into a temporary `export_presets.cfg`;
-5. imports the project;
-6. exports an Xcode project;
-7. verifies an `.xcodeproj` exists;
-8. uploads the result as `ChronoExponent-iOS-Xcode`.
+- manually through `workflow_dispatch`;
+- automatically on same-repository pull requests that change the iOS workflow, export preset or `project.godot`.
 
-The generated `export_presets.cfg` is not committed because it may contain machine/account-specific export configuration.
+External-fork pull requests do not execute the macOS build job.
 
-## Next stage — signed IPA
+The workflow verifies:
 
-After project-only export is confirmed, the pipeline will be extended with:
+1. Xcode and the iPhoneOS SDK are available;
+2. Godot 4.7.2 runs on the macOS runner;
+3. matching iOS export templates are installed;
+4. Godot imports the project without script errors;
+5. Godot produces an Xcode project;
+6. `xcodebuild -list` can read the project and expose a scheme;
+7. Xcode compiles an unsigned Release build for `iphoneos`;
+8. an `.app` bundle is created;
+9. the bundle is packaged into `ChronoExponent-unsigned.ipa`.
 
-- Apple Distribution / Development certificate import into a temporary keychain;
-- provisioning profile installation;
+Artifacts:
+
+- `ChronoExponent-unsigned-IPA`
+- `ChronoExponent-iOS-Xcode`
+
+## Next stage — installable signed IPA
+
+There are two separate routes.
+
+### Personal sideload route
+
+Use the unsigned IPA as input to a sideloading signer such as SideStore, AltStore or Sideloadly. That tool supplies a valid Apple signature during installation.
+
+This route does not make the GitHub artifact directly installable by itself.
+
+### Native Apple CI signing route
+
+Extend GitHub Actions with:
+
+- Apple Development or Distribution certificate;
+- temporary macOS keychain;
+- matching provisioning profile;
+- real Team ID;
 - Xcode archive;
 - `xcodebuild -exportArchive`;
-- signed `.ipa` artifact;
+- signed IPA;
 - optional TestFlight upload later.
 
-The signing material must be stored only in GitHub Actions secrets and must never be committed to the repository.
+Signing material must live only in repository secrets and must never be committed.
 
 ## Development rule
 
-Do not mix gameplay work with signing failures.
+Do not mix gameplay correctness with signing correctness.
 
-The pipeline is intentionally staged:
+The gates remain:
 
 ```text
-1. Godot validates
-2. Godot exports Xcode project
-3. Xcode builds
-4. signing works
-5. IPA installs on real iPhone
+1. Linux Godot validation
+2. Godot → Xcode export
+3. unsigned Xcode iphoneos build
+4. unsigned IPA packaging
+5. signing
+6. install on real iPhone
+7. performance / battery / touch validation
 ```
 
-Each stage must pass before the next one is treated as stable.
+Each stage must pass before the next stage is treated as stable.
