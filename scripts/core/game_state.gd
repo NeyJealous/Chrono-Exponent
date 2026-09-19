@@ -437,6 +437,11 @@ func buy_fracture_upgrade(node_id: String) -> bool:
 		)
 		if wave < desired_wave:
 			wave = desired_wave
+			run_highest_wave = max(run_highest_wave, wave)
+
+			if run_kills == 0 and run_damage <= 0.0:
+				run_start_wave = wave
+
 			start_wave()
 
 	fracture_upgrade_bought.emit(node_id, new_level)
