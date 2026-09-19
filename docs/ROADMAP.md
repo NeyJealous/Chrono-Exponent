@@ -43,8 +43,8 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 - [x] Fracture reset scaffold
 - [x] Fragment reward scaffold
 - [x] Permanent upgrade tree — first 15 functional nodes
-- [ ] Prestige confirmation/summary
-- [ ] Run statistics
+- [x] Prestige confirmation/summary
+- [x] Per-run Fracture statistics
 
 **Gate:** second run is measurably faster and remains interesting.
 
@@ -53,7 +53,7 @@ Development uses gated phases. A phase is complete only when its acceptance crit
 - [x] JSON local save
 - [x] Autosave scaffold
 - [x] Basic offline reward
-- [ ] Version migrations
+- [x] Version migrations
 - [ ] Export/import save
 - [ ] Accurate offline simulation
 
@@ -130,3 +130,20 @@ Pending:
 - installation test on a real iPhone.
 
 See `docs/IOS_BUILD.md`.
+
+
+## Fracture summary milestone
+
+Implemented on the Fracture-summary branch:
+
+- per-run timer and depth tracking;
+- per-run damage, Energy, kills, crits and bosses;
+- Fracture confirmation before destructive reset;
+- preview of expected Fragment reward;
+- post-Fracture result screen;
+- direct path from result screen to Fracture Tree;
+- save format v4 with migration from v3;
+- Fracture reward based on current-run depth rather than lifetime highest wave;
+- regression test preventing repeated Fracture from reusing a lifetime record.
+
+This closes the basic prestige UX loop. The next balance gate is to compare first-run and second-run times using the simulator.
