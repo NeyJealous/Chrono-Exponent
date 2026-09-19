@@ -7,6 +7,7 @@ signal unit_attack(unit_index: int, slot_index: int)
 signal wave_started(wave_number: int)
 signal wave_completed(wave_number: int)
 signal boss_failed(wave_number: int)
+signal fracture_upgrade_bought(node_id: String, new_level: int)
 
 var wave := 1
 var highest_wave := 1
@@ -14,10 +15,12 @@ var energy := 0.0
 var fragments := 0.0
 var weapon_level := 0
 var unit_levels := [0, 0, 0]
+var fracture_upgrades: Dictionary = {}
 
 var enemies: Array[EnemyState] = []
 var boss_time_left := 0.0
 var unit_attack_timers := [0.0, 0.0, 0.0]
+var auto_fire_timer := 0.0
 
 var total_damage := 0.0
 var total_energy := 0.0
@@ -45,22 +48,49 @@ func start_wave() -> void:
 			Balance.is_boss(wave)
 		))
 
-	boss_time_left = Balance.BOSS_TIME_SECONDS if Balance.is_boss(wave) else 0.0
+	boss_time_left = (
+		Balance.BOSS_TIME_SECONDS
+		if Balance.is_boss(wave)
+		else 0.0
+	)
 	wave_started.emit(wave)
 
 func tap_damage() -> float:
-	return Balance.tap_damage(weapon_level, fragments)
+	return (
+		Balance.tap_damage(weapon_level, fragments) *
+		FractureTree.tap_multiplier(fracture_upgrades)
+	)
 
 func crit_chance() -> float:
-	return Balance.crit_chance(weapon_level, fragments)
+	return clampf(
+		Balance.crit_chance(weapon_level, fragments) +
+		FractureTree.crit_chance_bonus(fracture_upgrades),
+		0.0,
+		1.0
+	)
 
 func crit_multiplier() -> float:
-	return Balance.crit_multiplier(weapon_level, fragments)
+	return (
+		Balance.crit_multiplier(weapon_level, fragments) +
+		FractureTree.crit_multiplier_bonus(fracture_upgrades)
+	)
 
 func total_dps() -> float:
 	var result := 0.0
+	var team_multiplier := FractureTree.team_damage_multiplier(
+		fracture_upgrades
+	)
+	var speed_multiplier := FractureTree.unit_attack_speed_multiplier(
+		fracture_upgrades
+	)
+
 	for i in unit_levels.size():
-		result += Balance.unit_dps(i, unit_levels[i], fragments)
+		result += (
+			Balance.unit_dps(i, unit_levels[i], fragments) *
+			team_multiplier *
+			speed_multiplier
+		)
+
 	return result
 
 func fire_at(slot_index: int) -> bool:
@@ -86,6 +116,7 @@ func tick(delta: float) -> void:
 	for enemy in enemies:
 		enemy.tick(delta)
 
+	_tick_auto_fire(delta)
 	_tick_units(delta)
 
 	if Balance.is_boss(wave) and has_alive_enemies():
@@ -93,13 +124,39 @@ func tick(delta: float) -> void:
 		if boss_time_left <= 0.0:
 			fail_boss()
 
+func _tick_auto_fire(delta: float) -> void:
+	if not FractureTree.auto_fire_enabled(fracture_upgrades):
+		auto_fire_timer = 0.0
+		return
+
+	auto_fire_timer += delta
+	var interval := FractureTree.auto_fire_interval(fracture_upgrades)
+
+	while auto_fire_timer >= interval:
+		var target := first_alive_enemy()
+		if target == null:
+			break
+
+		auto_fire_timer -= interval
+		fire_at(target.slot_index)
+
 func _tick_units(delta: float) -> void:
+	var attack_speed := FractureTree.unit_attack_speed_multiplier(
+		fracture_upgrades
+	)
+	var team_multiplier := FractureTree.team_damage_multiplier(
+		fracture_upgrades
+	)
+
 	for unit_index in unit_levels.size():
 		if unit_levels[unit_index] <= 0:
 			continue
 
 		unit_attack_timers[unit_index] += delta
-		var interval := Balance.unit_attack_interval(unit_index)
+		var interval := (
+			Balance.unit_attack_interval(unit_index) /
+			attack_speed
+		)
 
 		while unit_attack_timers[unit_index] >= interval:
 			var target := first_alive_enemy()
@@ -109,11 +166,20 @@ func _tick_units(delta: float) -> void:
 			unit_attack_timers[unit_index] -= interval
 			unit_attack.emit(unit_index, target.slot_index)
 
-			var damage := Balance.unit_damage_per_attack(
-				unit_index,
-				unit_levels[unit_index],
-				fragments
+			var damage := (
+				Balance.unit_damage_per_attack(
+					unit_index,
+					unit_levels[unit_index],
+					fragments
+				) *
+				team_multiplier
 			)
+
+			if target.is_boss:
+				damage *= FractureTree.boss_team_damage_multiplier(
+					fracture_upgrades
+				)
+
 			_deal_damage(
 				target,
 				damage,
@@ -142,6 +208,18 @@ func _deal_damage(
 
 func _on_enemy_destroyed(enemy: EnemyState) -> void:
 	var reward := Balance.enemy_reward_share(wave)
+
+	reward *= FractureTree.energy_multiplier(fracture_upgrades)
+	reward *= FractureTree.depth_energy_multiplier(
+		fracture_upgrades,
+		wave
+	)
+
+	if Balance.is_boss(wave):
+		reward *= FractureTree.boss_energy_multiplier(
+			fracture_upgrades
+		)
+
 	energy += reward
 	total_energy += reward
 	total_kills += 1
@@ -244,7 +322,14 @@ func buy_unit_amount(index: int, quantity: int) -> int:
 	return levels
 
 func fracture_reward() -> int:
-	return Balance.fracture_reward(highest_wave)
+	var base_reward := Balance.fracture_reward(highest_wave)
+	if base_reward <= 0:
+		return 0
+
+	return int(floor(
+		float(base_reward) *
+		FractureTree.fragment_multiplier(fracture_upgrades)
+	))
 
 func can_fracture() -> bool:
 	return fracture_reward() > 0
@@ -256,25 +341,79 @@ func fracture() -> bool:
 
 	fragments += reward
 	fractures += 1
-	wave = 1
-	energy = 0.0
+
+	wave = min(
+		FractureTree.starting_wave(fracture_upgrades),
+		highest_wave
+	)
+	energy = FractureTree.starting_energy(fracture_upgrades)
 	weapon_level = 0
 	unit_levels = [0, 0, 0]
 	unit_attack_timers = [0.0, 0.0, 0.0]
+	auto_fire_timer = 0.0
+
 	start_wave()
+	return true
+
+func fracture_upgrade_level(node_id: String) -> int:
+	return FractureTree.level(fracture_upgrades, node_id)
+
+func can_buy_fracture_upgrade(node_id: String) -> bool:
+	if FractureTree.is_maxed(fracture_upgrades, node_id):
+		return false
+
+	var upgrade_cost := FractureTree.cost(
+		fracture_upgrades,
+		node_id
+	)
+	return upgrade_cost > 0 and fragments >= upgrade_cost
+
+func buy_fracture_upgrade(node_id: String) -> bool:
+	if not can_buy_fracture_upgrade(node_id):
+		return false
+
+	var upgrade_cost := FractureTree.cost(
+		fracture_upgrades,
+		node_id
+	)
+	fragments -= upgrade_cost
+
+	var new_level := fracture_upgrade_level(node_id) + 1
+	fracture_upgrades[node_id] = new_level
+
+	if node_id == "starting_charge":
+		energy += 25.0
+
+	if node_id == "wave_memory":
+		var desired_wave := min(
+			FractureTree.starting_wave(fracture_upgrades),
+			highest_wave
+		)
+		if wave < desired_wave:
+			wave = desired_wave
+			start_wave()
+
+	fracture_upgrade_bought.emit(node_id, new_level)
 	return true
 
 func add_offline_reward(seconds: float) -> float:
 	var capped_seconds := min(seconds, 12.0 * 60.0 * 60.0)
 	var effective_dps := max(total_dps(), tap_damage() * 0.25)
-	var reward := effective_dps * capped_seconds * 0.10
+
+	var reward := (
+		effective_dps *
+		capped_seconds *
+		0.10 *
+		FractureTree.offline_multiplier(fracture_upgrades)
+	)
+
 	energy += reward
 	total_energy += reward
 	return reward
 
 func to_dict() -> Dictionary:
 	return {
-		"save_version": 2,
+		"save_version": 3,
 		"timestamp": Time.get_unix_time_from_system(),
 		"wave": wave,
 		"highest_wave": highest_wave,
@@ -282,6 +421,7 @@ func to_dict() -> Dictionary:
 		"fragments": fragments,
 		"weapon_level": weapon_level,
 		"unit_levels": unit_levels,
+		"fracture_upgrades": fracture_upgrades,
 		"total_damage": total_damage,
 		"total_energy": total_energy,
 		"total_kills": total_kills,
@@ -302,6 +442,14 @@ func load_dict(data: Dictionary) -> float:
 	for i in min(loaded_units.size(), unit_levels.size()):
 		unit_levels[i] = int(loaded_units[i])
 
+	fracture_upgrades.clear()
+	var loaded_upgrades: Dictionary = data.get(
+		"fracture_upgrades",
+		{}
+	)
+	for key in loaded_upgrades:
+		fracture_upgrades[String(key)] = int(loaded_upgrades[key])
+
 	total_damage = float(data.get("total_damage", 0.0))
 	total_energy = float(data.get("total_energy", 0.0))
 	total_kills = int(data.get("total_kills", 0))
@@ -309,7 +457,9 @@ func load_dict(data: Dictionary) -> float:
 	bosses_defeated = int(data.get("bosses_defeated", 0))
 	fractures = int(data.get("fractures", 0))
 	play_time = float(data.get("play_time", 0.0))
+
 	unit_attack_timers = [0.0, 0.0, 0.0]
+	auto_fire_timer = 0.0
 
 	start_wave()
 
@@ -317,4 +467,7 @@ func load_dict(data: Dictionary) -> float:
 		"timestamp",
 		Time.get_unix_time_from_system()
 	))
-	return max(0.0, Time.get_unix_time_from_system() - previous_timestamp)
+	return max(
+		0.0,
+		Time.get_unix_time_from_system() - previous_timestamp
+	)
