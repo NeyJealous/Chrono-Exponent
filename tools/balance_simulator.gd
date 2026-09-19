@@ -90,6 +90,9 @@ func _simulate_to_fracture(state: GameState) -> Dictionary:
 				)
 				last_purchase_time = elapsed
 
+				if state.is_farm_mode():
+					state.set_push_mode()
+
 	_record_milestones(state, elapsed, milestone_times)
 	_record_unit_unlocks(state, elapsed, unlock_times)
 
