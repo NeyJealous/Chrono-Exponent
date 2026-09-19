@@ -26,5 +26,8 @@ jobs:
       - name: Import project
         run: godot --headless --editor --path . --quit
 
+      - name: Gameplay smoke test
+        run: godot --headless --path . -s res://tests/smoke_test.gd
+
       - name: Boot main scene
         run: godot --headless --path . --quit-after 2
