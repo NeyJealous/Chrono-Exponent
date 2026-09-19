@@ -2,7 +2,7 @@ class_name SaveSystem
 extends RefCounted
 
 const SAVE_PATH := "user://chrono_exponent_save.json"
-const CURRENT_SAVE_VERSION := 4
+const CURRENT_SAVE_VERSION := 5
 
 static func save_game(state: GameState) -> bool:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -56,6 +56,8 @@ static func migrate_data(source: Dictionary) -> Dictionary:
 				data = _migrate_v2_to_v3(data)
 			3:
 				data = _migrate_v3_to_v4(data)
+			4:
+				data = _migrate_v4_to_v5(data)
 			_:
 				return {}
 
@@ -98,6 +100,15 @@ static func _migrate_v3_to_v4(data: Dictionary) -> Dictionary:
 	migrated["save_version"] = 4
 	return migrated
 
+static func _migrate_v4_to_v5(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+
+	var current_wave: int = max(1, int(migrated.get("wave", 1)))
+	migrated["progression_mode"] = GameState.PROGRESSION_PUSH
+	migrated["farm_wave"] = current_wave
+	migrated["save_version"] = 5
+	return migrated
+
 static func _normalize_current(data: Dictionary) -> void:
 	data["save_version"] = CURRENT_SAVE_VERSION
 
@@ -120,6 +131,29 @@ static func _normalize_current(data: Dictionary) -> void:
 	data["energy"] = max(0.0, float(data.get("energy", 0.0)))
 	data["fragments"] = max(0.0, float(data.get("fragments", 0.0)))
 	data["weapon_level"] = max(0, int(data.get("weapon_level", 0)))
+
+	var mode := String(data.get(
+		"progression_mode",
+		GameState.PROGRESSION_PUSH
+	))
+	if mode != GameState.PROGRESSION_FARM:
+		mode = GameState.PROGRESSION_PUSH
+	data["progression_mode"] = mode
+
+	data["farm_wave"] = clampi(
+		int(data.get("farm_wave", data["wave"])),
+		1,
+		max(
+			int(data["wave"]),
+			int(data.get("run_highest_wave", data["wave"]))
+		)
+	)
+
+	if (
+		data["progression_mode"] == GameState.PROGRESSION_FARM and
+		Balance.is_boss(int(data["farm_wave"]))
+	):
+		data["farm_wave"] = max(1, int(data["farm_wave"]) - 1)
 
 	data["run_time"] = max(0.0, float(data.get("run_time", 0.0)))
 	data["run_start_wave"] = max(
