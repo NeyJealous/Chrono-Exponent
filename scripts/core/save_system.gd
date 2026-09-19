@@ -85,7 +85,7 @@ static func _migrate_v2_to_v3(data: Dictionary) -> Dictionary:
 static func _migrate_v3_to_v4(data: Dictionary) -> Dictionary:
 	var migrated: Dictionary = data.duplicate(true)
 
-	var current_wave := max(1, int(migrated.get("wave", 1)))
+	var current_wave: int = max(1, int(migrated.get("wave", 1)))
 	migrated["run_time"] = 0.0
 	migrated["run_start_wave"] = current_wave
 	migrated["run_highest_wave"] = current_wave
