@@ -153,3 +153,29 @@ The first Fracture lands almost exactly in the intended **30–60 minute** windo
 Therefore the current base economy is accepted as the **Prototype 0.1 balance baseline**.
 
 This is not final release balance. It remains subject to real-device playtesting, changes to combat feel, additional Fracture Tree tiers, artifacts, challenges and automation.
+
+
+## Push/Farm baseline — CI run #73
+
+Validated after introducing explicit PUSH/FARM progression and boss-failure farming.
+
+Simulator strategy:
+
+- 4 manual shots/sec;
+- cheapest available Energy purchase;
+- boss failure automatically enters FARM;
+- simulator remains in FARM until at least one upgrade is purchased;
+- then it switches back to PUSH and retries progression.
+
+| Run | Time to Fracture | Boss failures | Longest purchase drought |
+|---|---:|---:|---:|
+| 1 | **45:45** | 56 | 00:37 |
+| 2 | **35:39** | 41 | 00:36 |
+| 3 | **29:42** | 32 | 00:35 |
+
+Prestige acceleration:
+
+- Run 1 → Run 2: **1.28× faster**, 22.1% less time;
+- Run 2 → Run 3: **1.20× faster**, 16.7% less time.
+
+The first Fracture remains within the preferred 30–60 minute target. The explicit farming behavior therefore replaces the old automatic boss-retry loop without requiring a base-economy rebalance.
