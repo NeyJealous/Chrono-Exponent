@@ -9,6 +9,7 @@ const RUN_COUNT := 3
 const MILESTONES := [10, 25, 50, 75, 100]
 
 func _init() -> void:
+	seed(1337)
 	var state := GameState.new()
 	var results: Array = []
 
