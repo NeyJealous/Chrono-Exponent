@@ -78,6 +78,7 @@ func _notification(what: int) -> void:
 func _connect_game_signals() -> void:
 	state.damage_dealt.connect(_on_damage_dealt)
 	state.enemy_destroyed.connect(_on_enemy_destroyed)
+	state.unit_attack.connect(_on_unit_attack)
 	state.fracture_completed.connect(_on_fracture_completed)
 	state.wave_completed.connect(_on_wave_completed)
 	state.boss_failed.connect(_on_boss_failed)
@@ -586,6 +587,123 @@ func _set_tree_visible(value: bool) -> void:
 	if value:
 		_update_fracture_tree_ui()
 
+func _on_unit_attack(unit_index: int, slot_index: int) -> void:
+	match unit_index:
+		0:
+			_spawn_drone_projectile(slot_index)
+		1:
+			_spawn_beam_effect(slot_index)
+		2:
+			_spawn_rail_effect(slot_index)
+
+
+func _target_center(slot_index: int) -> Vector2:
+	if slot_index < 0 or slot_index >= target_buttons.size():
+		return Vector2.ZERO
+
+	var target: Button = target_buttons[slot_index]
+	return (
+		target.global_position -
+		effects_layer.global_position +
+		target.size * 0.5
+	)
+
+
+func _unit_origin(unit_index: int) -> Vector2:
+	var x_factors: Array[float] = [0.24, 0.50, 0.76]
+	var safe_index: int = clampi(unit_index, 0, x_factors.size() - 1)
+	return Vector2(
+		effects_layer.size.x * x_factors[safe_index],
+		max(0.0, effects_layer.size.y - 145.0)
+	)
+
+
+func _spawn_drone_projectile(slot_index: int) -> void:
+	if slot_index < 0 or slot_index >= target_buttons.size():
+		return
+	if not target_buttons[slot_index].visible:
+		return
+
+	var projectile := ColorRect.new()
+	projectile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	projectile.color = Color(0.45, 0.95, 1.0, 1.0)
+	projectile.size = Vector2(11.0, 11.0)
+	projectile.position = _unit_origin(0) - projectile.size * 0.5
+	effects_layer.add_child(projectile)
+
+	var destination: Vector2 = (
+		_target_center(slot_index) -
+		projectile.size * 0.5
+	)
+	var tween := create_tween()
+	tween.tween_property(projectile, "position", destination, 0.10)
+	tween.tween_callback(projectile.queue_free)
+
+
+func _spawn_beam_effect(slot_index: int) -> void:
+	if slot_index < 0 or slot_index >= target_buttons.size():
+		return
+	if not target_buttons[slot_index].visible:
+		return
+
+	var beam := Line2D.new()
+	beam.width = 5.0
+	beam.default_color = Color(0.35, 0.88, 1.0, 0.95)
+	beam.points = PackedVector2Array([
+		_unit_origin(1),
+		_target_center(slot_index)
+	])
+	effects_layer.add_child(beam)
+
+	var tween := create_tween()
+	tween.tween_property(beam, "modulate:a", 0.0, 0.18)
+	tween.tween_callback(beam.queue_free)
+
+
+func _spawn_rail_effect(slot_index: int) -> void:
+	if slot_index < 0 or slot_index >= target_buttons.size():
+		return
+	if not target_buttons[slot_index].visible:
+		return
+
+	var rail := Line2D.new()
+	rail.width = 13.0
+	rail.default_color = Color(1.0, 0.42, 0.28, 0.95)
+	rail.points = PackedVector2Array([
+		_unit_origin(2),
+		_target_center(slot_index)
+	])
+	effects_layer.add_child(rail)
+
+	var core := Line2D.new()
+	core.width = 4.0
+	core.default_color = Color(1.0, 0.92, 0.72, 1.0)
+	core.points = rail.points
+	effects_layer.add_child(core)
+
+	var rail_tween := create_tween()
+	rail_tween.tween_property(rail, "modulate:a", 0.0, 0.28)
+	rail_tween.tween_callback(rail.queue_free)
+
+	var core_tween := create_tween()
+	core_tween.tween_property(core, "modulate:a", 0.0, 0.20)
+	core_tween.tween_callback(core.queue_free)
+
+
+func _target_tint(kind: String) -> Color:
+	match kind:
+		"Boss":
+			return Color(1.0, 0.58, 0.58, 1.0)
+		"Armored":
+			return Color(0.72, 0.78, 0.88, 1.0)
+		"Shielded":
+			return Color(0.58, 0.82, 1.0, 1.0)
+		"Regenerator":
+			return Color(0.62, 1.0, 0.72, 1.0)
+		_:
+			return Color.WHITE
+
+
 func _on_damage_dealt(
 	slot_index: int,
 	amount: float,
@@ -718,9 +836,16 @@ func _update_ui() -> void:
 	energy_label.text = "%s ENERGY" % Balance.format_number(state.energy)
 
 	if Balance.is_boss(state.wave):
-		boss_label.text = "BOSS   %.1fs" % max(state.boss_time_left, 0.0)
+		var remaining: float = max(state.boss_time_left, 0.0)
+		boss_label.text = "BOSS CORE   •   %.1fs" % remaining
+		boss_label.modulate = (
+			Color(1.0, 0.42, 0.36, 1.0)
+			if remaining <= 10.0
+			else Color(1.0, 0.78, 0.48, 1.0)
+		)
 	else:
 		boss_label.text = ""
+		boss_label.modulate = Color.WHITE
 
 	for slot_index in Balance.MAX_TARGET_SLOTS:
 		var enemy := state.get_enemy(slot_index)
@@ -733,6 +858,7 @@ func _update_ui() -> void:
 			continue
 
 		card.visible = true
+		button.self_modulate = _target_tint(enemy.kind)
 		button.text = "%s\n%s / %s" % [
 			enemy.status_text(),
 			Balance.format_number(enemy.hp),
