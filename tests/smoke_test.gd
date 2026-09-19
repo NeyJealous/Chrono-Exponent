@@ -60,6 +60,26 @@ func _init() -> void:
 	_check(state.wave == 1, "Fracture resets current wave")
 	_check(state.fragments > fragments_before, "Fracture awards Fragments")
 
+	var tap_before_upgrade := state.tap_damage()
+	_check(
+		state.buy_fracture_upgrade("residual_caliber"),
+		"Fracture Tree upgrade can be purchased"
+	)
+	_check(
+		state.tap_damage() > tap_before_upgrade,
+		"Arsenal upgrade changes combat math"
+	)
+
+	state.fragments = max(state.fragments, 2.0)
+	_check(
+		state.buy_fracture_upgrade("auto_fire"),
+		"Systems branch can unlock Auto Fire"
+	)
+	_check(
+		FractureTree.auto_fire_enabled(state.fracture_upgrades),
+		"Auto Fire upgrade becomes active"
+	)
+
 	print("Chrono Exponent smoke test passed.")
 	quit(0)
 
