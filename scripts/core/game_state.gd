@@ -7,6 +7,7 @@ signal unit_attack(unit_index: int, slot_index: int)
 signal wave_started(wave_number: int)
 signal wave_completed(wave_number: int)
 signal boss_failed(wave_number: int)
+signal fracture_completed(summary: Dictionary)
 signal fracture_upgrade_bought(node_id: String, new_level: int)
 
 var wave := 1
@@ -30,7 +31,19 @@ var bosses_defeated := 0
 var fractures := 0
 var play_time := 0.0
 
+var run_time := 0.0
+var run_start_wave := 1
+var run_highest_wave := 1
+var run_damage := 0.0
+var run_energy_earned := 0.0
+var run_kills := 0
+var run_crits := 0
+var run_bosses := 0
+var last_fracture_summary: Dictionary = {}
+
 func _init() -> void:
+	run_start_wave = wave
+	run_highest_wave = wave
 	start_wave()
 
 func start_wave() -> void:
@@ -103,6 +116,7 @@ func fire_at(slot_index: int) -> bool:
 	if is_crit:
 		amount *= crit_multiplier()
 		total_crits += 1
+		run_crits += 1
 
 	_deal_damage(enemy, amount, is_crit, "manual")
 	return true
@@ -112,6 +126,7 @@ func tick(delta: float) -> void:
 		return
 
 	play_time += delta
+	run_time += delta
 
 	for enemy in enemies:
 		enemy.tick(delta)
@@ -201,6 +216,7 @@ func _deal_damage(
 		return
 
 	total_damage += applied
+	run_damage += applied
 	damage_dealt.emit(enemy.slot_index, applied, is_crit, source)
 
 	if not enemy.is_alive():
@@ -223,6 +239,8 @@ func _on_enemy_destroyed(enemy: EnemyState) -> void:
 	energy += reward
 	total_energy += reward
 	total_kills += 1
+	run_energy_earned += reward
+	run_kills += 1
 
 	enemy_destroyed.emit(enemy.slot_index, enemy.kind)
 
@@ -234,10 +252,12 @@ func complete_wave() -> void:
 
 	if Balance.is_boss(completed_wave):
 		bosses_defeated += 1
+		run_bosses += 1
 
 	wave_completed.emit(completed_wave)
 	wave += 1
 	highest_wave = max(highest_wave, wave)
+	run_highest_wave = max(run_highest_wave, wave)
 	start_wave()
 
 func fail_boss() -> void:
@@ -334,10 +354,26 @@ func fracture_reward() -> int:
 func can_fracture() -> bool:
 	return fracture_reward() > 0
 
+func current_run_summary() -> Dictionary:
+	return {
+		"start_wave": run_start_wave,
+		"highest_wave": run_highest_wave,
+		"run_time": run_time,
+		"damage": run_damage,
+		"energy_earned": run_energy_earned,
+		"kills": run_kills,
+		"crits": run_crits,
+		"bosses": run_bosses,
+		"fragment_reward": fracture_reward()
+	}
+
 func fracture() -> bool:
 	var reward := fracture_reward()
 	if reward <= 0:
 		return false
+
+	last_fracture_summary = current_run_summary().duplicate(true)
+	last_fracture_summary["fragment_reward"] = reward
 
 	fragments += reward
 	fractures += 1
@@ -352,7 +388,17 @@ func fracture() -> bool:
 	unit_attack_timers = [0.0, 0.0, 0.0]
 	auto_fire_timer = 0.0
 
+	run_time = 0.0
+	run_start_wave = wave
+	run_highest_wave = wave
+	run_damage = 0.0
+	run_energy_earned = 0.0
+	run_kills = 0
+	run_crits = 0
+	run_bosses = 0
+
 	start_wave()
+	fracture_completed.emit(last_fracture_summary.duplicate(true))
 	return true
 
 func fracture_upgrade_level(node_id: String) -> int:
@@ -413,7 +459,7 @@ func add_offline_reward(seconds: float) -> float:
 
 func to_dict() -> Dictionary:
 	return {
-		"save_version": 3,
+		"save_version": 4,
 		"timestamp": Time.get_unix_time_from_system(),
 		"wave": wave,
 		"highest_wave": highest_wave,
@@ -428,7 +474,16 @@ func to_dict() -> Dictionary:
 		"total_crits": total_crits,
 		"bosses_defeated": bosses_defeated,
 		"fractures": fractures,
-		"play_time": play_time
+		"play_time": play_time,
+		"run_time": run_time,
+		"run_start_wave": run_start_wave,
+		"run_highest_wave": run_highest_wave,
+		"run_damage": run_damage,
+		"run_energy_earned": run_energy_earned,
+		"run_kills": run_kills,
+		"run_crits": run_crits,
+		"run_bosses": run_bosses,
+		"last_fracture_summary": last_fracture_summary
 	}
 
 func load_dict(data: Dictionary) -> float:
@@ -457,6 +512,22 @@ func load_dict(data: Dictionary) -> float:
 	bosses_defeated = int(data.get("bosses_defeated", 0))
 	fractures = int(data.get("fractures", 0))
 	play_time = float(data.get("play_time", 0.0))
+
+	run_time = float(data.get("run_time", 0.0))
+	run_start_wave = int(data.get("run_start_wave", wave))
+	run_highest_wave = max(
+		wave,
+		int(data.get("run_highest_wave", wave))
+	)
+	run_damage = float(data.get("run_damage", 0.0))
+	run_energy_earned = float(data.get("run_energy_earned", 0.0))
+	run_kills = int(data.get("run_kills", 0))
+	run_crits = int(data.get("run_crits", 0))
+	run_bosses = int(data.get("run_bosses", 0))
+	last_fracture_summary = data.get(
+		"last_fracture_summary",
+		{}
+	).duplicate(true)
 
 	unit_attack_timers = [0.0, 0.0, 0.0]
 	auto_fire_timer = 0.0
