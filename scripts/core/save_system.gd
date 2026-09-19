@@ -127,8 +127,10 @@ static func _normalize_current(data: Dictionary) -> void:
 		int(data.get("run_start_wave", data["wave"]))
 	)
 	data["run_highest_wave"] = max(
-		int(data["wave"]),
-		int(data["run_start_wave"]),
+		max(
+			int(data["wave"]),
+			int(data["run_start_wave"])
+		),
 		int(data.get("run_highest_wave", data["wave"]))
 	)
 	data["run_damage"] = max(0.0, float(data.get("run_damage", 0.0)))
