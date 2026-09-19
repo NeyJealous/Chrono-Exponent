@@ -50,7 +50,14 @@ func _ready() -> void:
 	_update_ui()
 
 func _process(delta: float) -> void:
-	state.tick(delta)
+	var fracture_modal_open := (
+		(fracture_confirm_overlay != null and fracture_confirm_overlay.visible) or
+		(fracture_result_overlay != null and fracture_result_overlay.visible)
+	)
+
+	if not fracture_modal_open:
+		state.tick(delta)
+
 	save_accumulator += delta
 
 	if event_message_time > 0.0:
